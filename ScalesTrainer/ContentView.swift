@@ -54,7 +54,7 @@ struct ContentView: View {
         //ScoreView()
             .onAppear() {
                 let l = Logger()
-                l.reportErrorString("Logged22jj")
+                l.reportErrorString("Logged22")
             }
     }
 }
