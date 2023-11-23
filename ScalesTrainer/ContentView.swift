@@ -47,8 +47,12 @@ enum KeyColor {
 }
 
 class PianoKey: ObservableObject {
-    @Published var selected = false
+    //@Published var selected = false
+    @Published var wasLastKeyPressed = false
     @Published var wasPressed = false
+    @Published var isCorrect:Bool? = nil
+    
+    var inScale = false
     let midi:Int
     let color:KeyColor
     
@@ -58,11 +62,11 @@ class PianoKey: ObservableObject {
         color = [0,2,4,5,7,9,11].contains(offset) ? .white : .black
     }
     
-    func setSelected(way:Bool) {
-        DispatchQueue.main.async {
-            self.selected = way
-        }
-    }
+//    func setSelected(way:Bool) {
+//        DispatchQueue.main.async {
+//            self.selected = way
+//        }
+//    }
 }
 
 class PianoKeys: ObservableObject {
@@ -75,73 +79,47 @@ class PianoKeys: ObservableObject {
         }
     }
     
-    func setPressed(pressedKey:PianoKey? = nil) {
+    func reset() {
         DispatchQueue.main.async {
             for key in self.keys {
-                if let p = pressedKey {
-                    key.wasPressed = key.midi == p.midi
+                key.wasPressed = false
+                key.wasLastKeyPressed = false
+                key.isCorrect = nil
+                key.inScale = [44, 46, 47, 49, 51, 52, 55, 56,   68, 70, 71, 73, 75, 76, 79, 80].contains(key.midi)
+            }
+        }
+    }
+    
+    func gradeAnswer() {
+        DispatchQueue.main.async {
+            for key in self.keys {
+                print(key.midi, "grade pressed", key.wasPressed, "inscale", key.inScale)
+            }
+            for key in self.keys {
+                if key.wasPressed {
+                    key.isCorrect = (key.inScale)
                 }
                 else {
-                    key.wasPressed = false
+                    if key.inScale {
+                        key.isCorrect = false
+                    }
                 }
             }
         }
     }
-}
-
-struct PianoKeyView: View {
-    @ObservedObject var pianoKeys:PianoKeys
-    @ObservedObject var pianoKey:PianoKey
-    @Binding var clickNumber:Int
-    let av = AudioSamplerPlayer.getShared()
-    @State var isSheetPresented = false
     
-    func getColor(_ key:PianoKey) -> Color {
-        if key.wasPressed {
-            return Color(.systemTeal)
-        }
-        else {
-            return pianoKey.color == .white ? Color.white : Color.black
-        }
-    }
-    
-    var body: some View {
-        ZStack {
-            Rectangle()
-                .foregroundColor(getColor(pianoKey))
-                .border(.black, width: 1)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 10, style: .continuous)
-                        .frame(height: 40)
-                        .foregroundColor(getColor(pianoKey))
-                        .offset(y: 90)
-                        .opacity(pianoKey.color == .white ? 0.0 : 1.0)
-                )
-
-            VStack {
-                Spacer()
-                Text("\(pianoKey.midi)").foregroundColor(.red).bold().font(.title)
-                if pianoKey.selected {
-                    Text("**")
+    func setWasLastKeyPressed(pressedKey:PianoKey) {
+        DispatchQueue.main.async {
+            //print("========setLastPressed")
+            for key in self.keys {
+                key.wasLastKeyPressed = false
+                if key.midi == pressedKey.midi {
+                    key.wasLastKeyPressed  = true
+                    key.wasPressed = true
                 }
-                Text("")
-                Text("")
+                //print("  ", p.midi, key.midi, key.wasPressed)
             }
         }
-        .onTapGesture {
-            pianoKey.setSelected(way: true)
-            //av.stopPlaying()
-            av.play(note: UInt8(pianoKey.midi))
-            if clickNumber == 0 {
-                isSheetPresented = true
-            }
-            clickNumber += 1
-            pianoKeys.setPressed(pressedKey: pianoKey)
-        }
-        .sheet(isPresented: $isSheetPresented) {
-            HandView(isSheetPresented: $isSheetPresented)
-        }
-
     }
 }
 
@@ -156,22 +134,90 @@ struct SelectScaleView: View {
     }
 }
 
+struct PianoKeyView: View {
+    @ObservedObject var pianoKeys:PianoKeys
+    @ObservedObject var pianoKey:PianoKey
+    @Binding var clickNumber:Int
+    let av = AudioSamplerPlayer.getShared()
+    @State var isSheetPresented = false
+    
+    func getColor(_ key:PianoKey) -> Color {
+        if key.wasLastKeyPressed {
+            return Color(.systemTeal)
+        }
+        else {
+            return pianoKey.color == .white ? Color.white : Color.black
+        }
+    }
+    
+    func getCorrect(_ key:PianoKey) -> (Bool, String) {
+        if let answer = pianoKey.isCorrect {
+            return (answer, answer ? "\u{2713}" : "X")
+        }
+        else {
+            return (false, "")
+        }
+    }
+    
+    var body: some View {
+        ZStack {
+            Rectangle()
+                .foregroundColor(getColor(pianoKey))
+                .border(.black, width: 1)
+//                .overlay(
+//                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+//                        .frame(height: 40)
+//                        .foregroundColor(getColor(pianoKey))
+//                        .offset(y: whiteKeyHeight * 0.10)
+//                        .opacity(pianoKey.color == .white ? 0.0 : 1.0)
+//                )
+
+            VStack {
+                Spacer()
+                //Text("\(pianoKey.midi)").foregroundColor(.red).bold().font(.title)
+                Text(getCorrect(pianoKey).1).foregroundColor(getCorrect(pianoKey).0 ? Color(.green) : Color(.red)).bold().font(.title)
+                Text("")
+                Text("")
+            }
+        }
+        .onTapGesture {
+            pianoKeys.setWasLastKeyPressed(pressedKey: pianoKey)
+            //av.stopPlaying()
+            av.play(note: UInt8(pianoKey.midi))
+            if clickNumber == 0 {
+                isSheetPresented = true
+            }
+            clickNumber += 1
+            //pianoKeys.setPressed(pressedKey: pianoKey)
+        }
+        .sheet(isPresented: $isSheetPresented) {
+            HandView(isSheetPresented: $isSheetPresented)
+        }
+
+    }
+}
+
 struct KeyboardView: View {
     let hand:Int
     @ObservedObject var pianoKeys:PianoKeys
+    @Binding var timeAllowed:Double
+
+    @State var timeRemaining:Double = 0.0
     @State var offset = 0.0
-    let whiteKeyWidth = 60.0
+    let whiteKeyWidth = 70.0
     var blackKeyWidth = 0.0
     @State var clickNumber = 0
     @State var timer: AnyCancellable?
     @State var state:PlayState = .notStarted
-    @State var timeRemaining = 5
     @State var isSheetPresented = false
-
-    init(pianoKeys:PianoKeys, hand:Int) {
+    @State var whiteKeyHeight = 200.0
+    
+    init(pianoKeys:PianoKeys, hand:Int, timeAllowed:Binding<Double>) {
         self.pianoKeys = pianoKeys
         self.hand = hand
         blackKeyWidth = whiteKeyWidth * 0.7
+        _timeAllowed = timeAllowed
+        //self.timeRemaining = self.timeAllowed
     }
     
     func startTimer() {
@@ -181,9 +227,10 @@ struct KeyboardView: View {
                     self.timeRemaining -= 1
                 } else {
                     self.timer?.cancel()
-                    self.state = .notStarted
+                    self.state = .completed
                     self.clickNumber = 0
-                    pianoKeys.setPressed()
+                    self.timeRemaining = timeAllowed
+                    pianoKeys.gradeAnswer()
                 }
             }
     }
@@ -198,11 +245,16 @@ struct KeyboardView: View {
         return 0.0
     }
     
+    func getName() -> String {
+        return hand == 0 ? "Right Hand" : "Left Hand"
+    }
+    
     func buttonsView() -> some View {
         HStack {
-            Text("Right Hand").font(.title).padding()
+            Text(getName()).font(.title).padding()
             Button(action: {
                 state = .started
+                pianoKeys.reset()
                 if state == .started {
                     startTimer()
                     isSheetPresented = true
@@ -214,9 +266,18 @@ struct KeyboardView: View {
             }
             .padding()
             if state == .started {
-                CircularProgressView(progress: CGFloat(timeRemaining) / 30.0, timeRemaining: timeRemaining)
+                CircularProgressView(progress: CGFloat(timeRemaining) / 30.0, timeRemaining: Int(timeRemaining))
                     .frame(width: 50, height: 50)
                     .padding(20)
+            }
+            if state == .completed {
+                Button(action: {
+                    state = .notStarted
+                    pianoKeys.reset()
+                }) {
+                    Text("Try Again").font(.title)
+                }
+
             }
         }
     }
@@ -232,7 +293,7 @@ struct KeyboardView: View {
                             PianoKeyView(pianoKeys: pianoKeys,
                                          pianoKey: pianoKeys.keys[index],
                                          clickNumber: $clickNumber)
-                            .frame(width: whiteKeyWidth, height: 300)
+                            .frame(width: whiteKeyWidth, height: whiteKeyHeight)
                         }
                     }
                 }
@@ -244,7 +305,7 @@ struct KeyboardView: View {
                             PianoKeyView(pianoKeys: pianoKeys,
                                          pianoKey: pianoKeys.keys[index],
                                          clickNumber: $clickNumber)
-                            .frame(width: blackKeyWidth, height: 200)
+                            .frame(width: blackKeyWidth, height: whiteKeyHeight * 0.60)
                             Spacer().frame(width: whiteKeyWidth - blackKeyWidth)
                         }
                         else {
@@ -255,13 +316,16 @@ struct KeyboardView: View {
                 .padding(.leading, whiteKeyWidth - blackKeyWidth / 2.0)
             }
         }
+        .onAppear() {
+            self.timeRemaining = self.timeAllowed
+        }
     }
 }
 
 enum PlayState {
     case notStarted
     case started
-    case stopped
+    case completed
 }
 
 struct HandView:View {
@@ -301,6 +365,7 @@ struct ScalesView: View {
     @ObservedObject var score:Score
     var pianoKeysLH = PianoKeys(midi: 36, number: 24)
     var pianoKeysRH = PianoKeys(midi: 60, number: 24)
+    @State var timeAllowed = 10.0
     
     init(score:Score) {
         self.score = score
@@ -310,15 +375,24 @@ struct ScalesView: View {
         VStack {
             Text("Scale Trainer").font(.title).padding()
             
-            SelectScaleView().padding()
+            HStack {
+                SelectScaleView().padding()
+                HStack {
+                    Text("Time Allowed \(Int(timeAllowed))").font(.title).padding()
+                    Slider(value: $timeAllowed, in: 0...20, step: 1.0).padding()
+                }
+                .padding()
+
+            }
 
             //ScoreView(score: score).padding()
-            //MetronomeView(score: score, helpText: "", frameHeight: 100)
-            ToolsView(score: score, helpMetronome: "")
             
-            KeyboardView(pianoKeys: pianoKeysRH, hand: 0).padding()
+            //ToolsView(score: score, helpMetronome: "")
+            
+            KeyboardView(pianoKeys: pianoKeysRH, hand: 0, timeAllowed: $timeAllowed).padding()
 
-            KeyboardView(pianoKeys: pianoKeysLH, hand: 1).padding()
+            KeyboardView(pianoKeys: pianoKeysLH, hand: 1, timeAllowed: $timeAllowed).padding()
+            
         }
         .onAppear() {
             Metronome.getMetronomeWithSettings(initialTempo:60, allowChangeTempo:true, ctx:"")
