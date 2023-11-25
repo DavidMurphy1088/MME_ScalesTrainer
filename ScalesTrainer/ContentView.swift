@@ -47,11 +47,11 @@ enum KeyColor {
 }
 
 class PianoKey: ObservableObject {
-    //@Published var selected = false
     @Published var wasLastKeyPressed = false
     @Published var wasPressed = false
     @Published var isCorrect:Bool? = nil
-    
+    @Published var finger:Int? = nil
+
     var inScale = false
     let midi:Int
     let color:KeyColor
@@ -67,6 +67,9 @@ class PianoKey: ObservableObject {
 //            self.selected = way
 //        }
 //    }
+    func getFingerStr() -> String {
+        return "F:" + (finger == nil ? "X" : "\(finger!)")
+    }
 }
 
 class PianoKeys: ObservableObject {
@@ -81,11 +84,12 @@ class PianoKeys: ObservableObject {
     
     func reset() {
         DispatchQueue.main.async {
-            for key in self.keys {
-                key.wasPressed = false
-                key.wasLastKeyPressed = false
-                key.isCorrect = nil
-                key.inScale = [44, 46, 47, 49, 51, 52, 55, 56,   68, 70, 71, 73, 75, 76, 79, 80].contains(key.midi)
+            for index in 0..<self.keys.count {
+                self.keys[index].wasPressed = false
+                self.keys[index].wasLastKeyPressed = false
+                self.keys[index].isCorrect = nil
+                self.keys[index].inScale = [44, 46, 47, 49, 51, 52, 55, 56,   68, 70, 71, 73, 75, 76, 79, 80].contains(self.keys[index].midi)
+                self.keys[index].finger = self.keys[index].midi == 44 ? nil : 1
             }
         }
     }
@@ -93,7 +97,7 @@ class PianoKeys: ObservableObject {
     func gradeAnswer() {
         DispatchQueue.main.async {
             for key in self.keys {
-                print(key.midi, "grade pressed", key.wasPressed, "inscale", key.inScale)
+                //print(key.midi, "grade pressed", key.wasPressed, "inscale", key.inScale)
             }
             for key in self.keys {
                 if key.wasPressed {
@@ -137,9 +141,9 @@ struct SelectScaleView: View {
 struct PianoKeyView: View {
     @ObservedObject var pianoKeys:PianoKeys
     @ObservedObject var pianoKey:PianoKey
+    @Binding var activateFingerChoiceForMidi:Int?
     @Binding var clickNumber:Int
     let av = AudioSamplerPlayer.getShared()
-    @State var isSheetPresented = false
     
     func getColor(_ key:PianoKey) -> Color {
         if key.wasLastKeyPressed {
@@ -159,6 +163,7 @@ struct PianoKeyView: View {
         }
     }
     
+    
     var body: some View {
         ZStack {
             Rectangle()
@@ -174,26 +179,23 @@ struct PianoKeyView: View {
 
             VStack {
                 Spacer()
-                //Text("\(pianoKey.midi)").foregroundColor(.red).bold().font(.title)
+                Text("\(pianoKey.midi)").foregroundColor(.red).bold().font(.title3)
+                Text("\(pianoKey.getFingerStr())").foregroundColor(.red).bold().font(.title3)
                 Text(getCorrect(pianoKey).1).foregroundColor(getCorrect(pianoKey).0 ? Color(.green) : Color(.red)).bold().font(.title)
                 Text("")
                 Text("")
             }
         }
         .onTapGesture {
-            pianoKeys.setWasLastKeyPressed(pressedKey: pianoKey)
-            //av.stopPlaying()
-            av.play(note: UInt8(pianoKey.midi))
-            if clickNumber == 0 {
-                isSheetPresented = true
+            if pianoKey.finger == nil {
+                activateFingerChoiceForMidi = pianoKey.midi
             }
-            clickNumber += 1
-            //pianoKeys.setPressed(pressedKey: pianoKey)
+            else {
+                pianoKeys.setWasLastKeyPressed(pressedKey: pianoKey)
+                av.play(note: UInt8(pianoKey.midi))
+                clickNumber += 1
+            }
         }
-        .sheet(isPresented: $isSheetPresented) {
-            HandView(isSheetPresented: $isSheetPresented)
-        }
-
     }
 }
 
@@ -211,7 +213,10 @@ struct KeyboardView: View {
     @State var state:PlayState = .notStarted
     @State var isSheetPresented = false
     @State var whiteKeyHeight = 200.0
-    
+    @State var handViewPopup = true
+    @State var activateFingerChoiceForMidi:Int? = nil
+    @State var selectedFinger = 0
+
     init(pianoKeys:PianoKeys, hand:Int, timeAllowed:Binding<Double>) {
         self.pianoKeys = pianoKeys
         self.hand = hand
@@ -253,6 +258,13 @@ struct KeyboardView: View {
         HStack {
             Text(getName()).font(.title).padding()
             Button(action: {
+                handViewPopup = true
+            }) {
+                if state == .notStarted {
+                    Text("Pick Finger").font(.title)
+                }
+            }
+            Button(action: {
                 state = .started
                 pianoKeys.reset()
                 if state == .started {
@@ -286,12 +298,13 @@ struct KeyboardView: View {
         VStack {
             buttonsView()
             ZStack(alignment: .topLeading) { // Aligning to the top and leading edge
-                
+                ///White notes
                 HStack(spacing: 0) {
                     ForEach(0..<pianoKeys.keys.count, id: \.self) { index in
                         if pianoKeys.keys[index].color == .white {
                             PianoKeyView(pianoKeys: pianoKeys,
                                          pianoKey: pianoKeys.keys[index],
+                                         activateFingerChoiceForMidi: $activateFingerChoiceForMidi,
                                          clickNumber: $clickNumber)
                             .frame(width: whiteKeyWidth, height: whiteKeyHeight)
                         }
@@ -299,11 +312,13 @@ struct KeyboardView: View {
                 }
                 .border(Color.black, width: 1)
                 
+                ///Black notes
                 HStack(spacing: 0) {
                     ForEach(0..<pianoKeys.keys.count, id: \.self) { index in
                         if pianoKeys.keys[index].color == .black {
                             PianoKeyView(pianoKeys: pianoKeys,
                                          pianoKey: pianoKeys.keys[index],
+                                         activateFingerChoiceForMidi: $activateFingerChoiceForMidi,
                                          clickNumber: $clickNumber)
                             .frame(width: blackKeyWidth, height: whiteKeyHeight * 0.60)
                             Spacer().frame(width: whiteKeyWidth - blackKeyWidth)
@@ -315,9 +330,29 @@ struct KeyboardView: View {
                 }
                 .padding(.leading, whiteKeyWidth - blackKeyWidth / 2.0)
             }
+            
+            HandView(
+                
+                opacity: Binding(
+                get: { self.selectedFinger },
+                set: { newValue in
+                    //self.opacity = newValue
+                }),
+                
+                selectedFinger: Binding(
+                get: { self.selectedFinger },
+                set: { newValue in
+                    self.selectedFinger = newValue
+                    // Perform any additional actions here
+                    print("Value changed to \(newValue) for midi \(activateFingerChoiceForMidi)")
+                }),
+                frameHeight: 50
+            )
+
         }
         .onAppear() {
             self.timeRemaining = self.timeAllowed
+            pianoKeys.reset()
         }
     }
 }
@@ -329,33 +364,34 @@ enum PlayState {
 }
 
 struct HandView:View {
-    @Binding var isSheetPresented: Bool
+    @Binding var opacity: Bool
+    @Binding var selectedFinger: Int
+    let frameHeight:Double
     
     var body: some View {
         VStack {
-            ZStack {
+            VStack {
+                HStack {
+                    ForEach(0..<5) { index in
+                        ZStack {
+                            Rectangle()
+                                .fill(Color.blue)
+                                .opacity(opacity ? 1.0 : 0.3)
+                                .frame(width: 80, height: 40)
+                                .onTapGesture {
+                                    selectedFinger = index
+                                }
+
+                            Text("\(5 - index)")
+                        }
+                    }
+                }
                 Image("lh")
                     .resizable() // Make the image resizable
                     .scaledToFit() // Scale the image to fit its container
-                    .frame(width: 500) // Set the desired width and height
-                VStack {
-                    HStack {
-                        ForEach(0..<5) { index in
-                            ZStack {
-                                Rectangle()
-                                    .fill(Color.blue)
-                                    .opacity(0.3)
-                                    .frame(width: 80, height: 40)
-                                    .onTapGesture {
-                                        isSheetPresented = false
-                                    }
+                    .frame(height: frameHeight) // Set the desired width and height
 
-                                Text("\(5 - index)")
-                            }
-                        }
-                    }
-                    Spacer().frame(height: 500)
-                }
+                //Spacer().frame(height: 500)
             }
         }
     }
@@ -392,7 +428,6 @@ struct ScalesView: View {
             KeyboardView(pianoKeys: pianoKeysRH, hand: 0, timeAllowed: $timeAllowed).padding()
 
             KeyboardView(pianoKeys: pianoKeysLH, hand: 1, timeAllowed: $timeAllowed).padding()
-            
         }
         .onAppear() {
             Metronome.getMetronomeWithSettings(initialTempo:60, allowChangeTempo:true, ctx:"")
