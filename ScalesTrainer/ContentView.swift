@@ -55,6 +55,7 @@ class PianoKey: ObservableObject {
     var inScale = false
     let midi:Int
     let color:KeyColor
+    var requiresFingerPrompt = false
     
     init(midi:Int) {
         self.midi = midi
@@ -68,7 +69,8 @@ class PianoKey: ObservableObject {
 //        }
 //    }
     func getFingerStr() -> String {
-        return "F:" + (finger == nil ? "X" : "\(finger!)")
+        //return "F:" + (finger == nil ? "_" : "\(finger!)")
+        return "" + (finger == nil ? "" : "\(finger! + 1)")
     }
 }
 
@@ -88,8 +90,9 @@ class PianoKeys: ObservableObject {
                 self.keys[index].wasPressed = false
                 self.keys[index].wasLastKeyPressed = false
                 self.keys[index].isCorrect = nil
+                self.keys[index].finger = nil
                 self.keys[index].inScale = [44, 46, 47, 49, 51, 52, 55, 56,   68, 70, 71, 73, 75, 76, 79, 80].contains(self.keys[index].midi)
-                self.keys[index].finger = self.keys[index].midi == 44 ? nil : 1
+                self.keys[index].requiresFingerPrompt = [44,49].contains(self.keys[index].midi)
             }
         }
     }
@@ -138,13 +141,43 @@ struct SelectScaleView: View {
     }
 }
 
-struct PianoKeyView: View {
-    @ObservedObject var pianoKeys:PianoKeys
-    @ObservedObject var pianoKey:PianoKey
-    @Binding var activateFingerChoiceForMidi:Int?
-    @Binding var clickNumber:Int
-    let av = AudioSamplerPlayer.getShared()
+struct HandView:View {
+    @Binding var lastPianoKeyPressed:PianoKey?
+    @Binding var selectedFinger: Int?
+    let frameHeight:Double
     
+    var body: some View {
+        VStack {
+            VStack {
+                HStack {
+                    ForEach(0..<5) { index in
+                        ZStack {
+                            Rectangle()
+                                .fill(Color.blue)
+                                //.opacity(opacity ? 1.0 : 0.3)
+                                .frame(width: 80, height: 40)
+                                .onTapGesture {
+                                    selectedFinger = index
+                                }
+
+                            Text("\(5 - index)")
+                        }
+                    }
+                }
+                Image("lh")
+                    .resizable() // Make the image resizable
+                    .scaledToFit() // Scale the image to fit its container
+                    .frame(height: frameHeight) // Set the desired width and height
+                //Spacer().frame(height: 500)
+            }
+        }
+    }
+}
+
+struct PianoKeyView: View {
+    let id:Int
+    @ObservedObject var pianoKey:PianoKey
+        
     func getColor(_ key:PianoKey) -> Color {
         if key.wasLastKeyPressed {
             return Color(.systemTeal)
@@ -153,7 +186,14 @@ struct PianoKeyView: View {
             return pianoKey.color == .white ? Color.white : Color.black
         }
     }
-    
+
+    func getID() -> String {
+//        let uuidString = id.uuidString
+//        let lastTwoCharacters = String(uuidString.suffix(2))
+//        return lastTwoCharacters
+        return "\(id)"
+    }
+
     func getCorrect(_ key:PianoKey) -> (Bool, String) {
         if let answer = pianoKey.isCorrect {
             return (answer, answer ? "\u{2713}" : "X")
@@ -162,40 +202,31 @@ struct PianoKeyView: View {
             return (false, "")
         }
     }
-    
-    
+
     var body: some View {
         ZStack {
             Rectangle()
                 .foregroundColor(getColor(pianoKey))
                 .border(.black, width: 1)
-//                .overlay(
-//                    RoundedRectangle(cornerRadius: 10, style: .continuous)
-//                        .frame(height: 40)
-//                        .foregroundColor(getColor(pianoKey))
-//                        .offset(y: whiteKeyHeight * 0.10)
-//                        .opacity(pianoKey.color == .white ? 0.0 : 1.0)
-//                )
-
+                .overlay(
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .frame(height: 40)
+                        .foregroundColor(getColor(pianoKey))
+                        //.offset(y: whiteKeyHeight * 0.10)
+                        .opacity(pianoKey.color == .white ? 0.0 : 1.0)
+                )
+            
             VStack {
                 Spacer()
-                Text("\(pianoKey.midi)").foregroundColor(.red).bold().font(.title3)
-                Text("\(pianoKey.getFingerStr())").foregroundColor(.red).bold().font(.title3)
-                Text(getCorrect(pianoKey).1).foregroundColor(getCorrect(pianoKey).0 ? Color(.green) : Color(.red)).bold().font(.title)
+                //Text("M:\(pianoKey.midi)").foregroundColor(.red).bold().font(.title3)
+                //Text("I:\(getID())").foregroundColor(.red).bold().font(.title3)
+                Text("\(pianoKey.getFingerStr())").foregroundColor(.blue).bold().font(.title)
+                //Text(getCorrect(pianoKey).1).foregroundColor(getCorrect(pianoKey).0 ? Color(.green) : Color(.red)).bold().font(.title)
                 Text("")
                 Text("")
             }
         }
-        .onTapGesture {
-            if pianoKey.finger == nil {
-                activateFingerChoiceForMidi = pianoKey.midi
-            }
-            else {
-                pianoKeys.setWasLastKeyPressed(pressedKey: pianoKey)
-                av.play(note: UInt8(pianoKey.midi))
-                clickNumber += 1
-            }
-        }
+//        .border(.green)
     }
 }
 
@@ -206,23 +237,28 @@ struct KeyboardView: View {
 
     @State var timeRemaining:Double = 0.0
     @State var offset = 0.0
-    let whiteKeyWidth = 70.0
+    
+    let whiteKeyWidth = 60.0
     var blackKeyWidth = 0.0
+    
     @State var clickNumber = 0
     @State var timer: AnyCancellable?
     @State var state:PlayState = .notStarted
-    @State var isSheetPresented = false
+    //@State var isSheetPresented = false
+    
     @State var whiteKeyHeight = 200.0
-    @State var handViewPopup = true
-    @State var activateFingerChoiceForMidi:Int? = nil
-    @State var selectedFinger = 0
+    @State var lastGestureTime:Date? = nil
+    @State var requiresFingerPrompt = false
+    @State var selectedFinger:Int? = nil
+    @State var lastPianoKeyPressed:PianoKey?
+
+    let av = AudioSamplerPlayer.getShared()
 
     init(pianoKeys:PianoKeys, hand:Int, timeAllowed:Binding<Double>) {
         self.pianoKeys = pianoKeys
         self.hand = hand
         blackKeyWidth = whiteKeyWidth * 0.7
         _timeAllowed = timeAllowed
-        //self.timeRemaining = self.timeAllowed
     }
     
     func startTimer() {
@@ -257,19 +293,13 @@ struct KeyboardView: View {
     func buttonsView() -> some View {
         HStack {
             Text(getName()).font(.title).padding()
-            Button(action: {
-                handViewPopup = true
-            }) {
-                if state == .notStarted {
-                    Text("Pick Finger").font(.title)
-                }
-            }
+
             Button(action: {
                 state = .started
                 pianoKeys.reset()
                 if state == .started {
                     startTimer()
-                    isSheetPresented = true
+                    //isSheetPresented = true
                 }
             }) {
                 if state == .notStarted {
@@ -294,33 +324,68 @@ struct KeyboardView: View {
         }
     }
     
+    func onTap(pianoKey:PianoKey, gesture: DragGesture.Value) -> Bool {
+        if pianoKey.requiresFingerPrompt {
+            if pianoKey.finger == nil {
+                return true
+            }
+        }
+        var doTap = false
+        if let lastTime = lastGestureTime {
+            let diff = gesture.time.timeIntervalSince(lastTime)
+            if diff > 0.20 {
+                doTap = true
+            }
+        }
+        else {
+            doTap = true
+        }
+        if doTap {
+            self.lastGestureTime = gesture.time
+            pianoKeys.setWasLastKeyPressed(pressedKey: pianoKey)
+            print("================ Tap", pianoKey.midi)
+            av.play(note: UInt8(pianoKey.midi))
+            clickNumber += 1
+        }
+        return false
+    }
+    
     var body: some View {
         VStack {
             buttonsView()
             ZStack(alignment: .topLeading) { // Aligning to the top and leading edge
                 ///White notes
+            
                 HStack(spacing: 0) {
                     ForEach(0..<pianoKeys.keys.count, id: \.self) { index in
                         if pianoKeys.keys[index].color == .white {
-                            PianoKeyView(pianoKeys: pianoKeys,
-                                         pianoKey: pianoKeys.keys[index],
-                                         activateFingerChoiceForMidi: $activateFingerChoiceForMidi,
-                                         clickNumber: $clickNumber)
+                            PianoKeyView(id:index, pianoKey: pianoKeys.keys[index])
                             .frame(width: whiteKeyWidth, height: whiteKeyHeight)
+                            .gesture(
+                                DragGesture(minimumDistance: 0)
+                                    .onChanged({ gesture in
+                                        lastPianoKeyPressed = pianoKeys.keys[index]
+                                        requiresFingerPrompt = onTap(pianoKey: pianoKeys.keys[index], gesture: gesture)
+                                    })
+                                )
                         }
                     }
                 }
                 .border(Color.black, width: 1)
-                
+
                 ///Black notes
                 HStack(spacing: 0) {
                     ForEach(0..<pianoKeys.keys.count, id: \.self) { index in
                         if pianoKeys.keys[index].color == .black {
-                            PianoKeyView(pianoKeys: pianoKeys,
-                                         pianoKey: pianoKeys.keys[index],
-                                         activateFingerChoiceForMidi: $activateFingerChoiceForMidi,
-                                         clickNumber: $clickNumber)
+                            PianoKeyView(id:index, pianoKey: pianoKeys.keys[index])
                             .frame(width: blackKeyWidth, height: whiteKeyHeight * 0.60)
+                            .gesture(
+                                DragGesture(minimumDistance: 0)
+                                    .onChanged({ gesture in
+                                        lastPianoKeyPressed = pianoKeys.keys[index]
+                                        requiresFingerPrompt = onTap(pianoKey: pianoKeys.keys[index], gesture: gesture)
+                                    })
+                                )
                             Spacer().frame(width: whiteKeyWidth - blackKeyWidth)
                         }
                         else {
@@ -330,30 +395,30 @@ struct KeyboardView: View {
                 }
                 .padding(.leading, whiteKeyWidth - blackKeyWidth / 2.0)
             }
-            
-            HandView(
-                
-                opacity: Binding(
-                get: { self.selectedFinger },
-                set: { newValue in
-                    //self.opacity = newValue
-                }),
-                
-                selectedFinger: Binding(
-                get: { self.selectedFinger },
-                set: { newValue in
-                    self.selectedFinger = newValue
-                    // Perform any additional actions here
-                    print("Value changed to \(newValue) for midi \(activateFingerChoiceForMidi)")
-                }),
-                frameHeight: 50
-            )
-
         }
         .onAppear() {
             self.timeRemaining = self.timeAllowed
             pianoKeys.reset()
+            Settings.shared.useUpstrokeTaps = false
         }
+        .onChange(of: selectedFinger) { finger in
+            print("============Finger", finger)
+            if let lastPianoKeyPressed = lastPianoKeyPressed {
+                lastPianoKeyPressed.finger = finger
+                pianoKeys.setWasLastKeyPressed(pressedKey: lastPianoKeyPressed)
+                //print("================ Tap", pianoKey.midi)
+                av.play(note: UInt8(lastPianoKeyPressed.midi))
+
+            }
+        }
+
+        //if requiresFingerPrompt {
+            HandView(
+                lastPianoKeyPressed: $lastPianoKeyPressed,
+                selectedFinger: $selectedFinger,
+                frameHeight: 50)
+            .opacity(requiresFingerPrompt ? 1.0 : 0.2)
+        //}
     }
 }
 
@@ -361,40 +426,6 @@ enum PlayState {
     case notStarted
     case started
     case completed
-}
-
-struct HandView:View {
-    @Binding var opacity: Bool
-    @Binding var selectedFinger: Int
-    let frameHeight:Double
-    
-    var body: some View {
-        VStack {
-            VStack {
-                HStack {
-                    ForEach(0..<5) { index in
-                        ZStack {
-                            Rectangle()
-                                .fill(Color.blue)
-                                .opacity(opacity ? 1.0 : 0.3)
-                                .frame(width: 80, height: 40)
-                                .onTapGesture {
-                                    selectedFinger = index
-                                }
-
-                            Text("\(5 - index)")
-                        }
-                    }
-                }
-                Image("lh")
-                    .resizable() // Make the image resizable
-                    .scaledToFit() // Scale the image to fit its container
-                    .frame(height: frameHeight) // Set the desired width and height
-
-                //Spacer().frame(height: 500)
-            }
-        }
-    }
 }
 
 struct ScalesView: View {
@@ -430,7 +461,7 @@ struct ScalesView: View {
             KeyboardView(pianoKeys: pianoKeysLH, hand: 1, timeAllowed: $timeAllowed).padding()
         }
         .onAppear() {
-            Metronome.getMetronomeWithSettings(initialTempo:60, allowChangeTempo:true, ctx:"")
+           // Metronome.getMetronomeWithSettings(initialTempo:60, allowChangeTempo:true, ctx:"")
         }
     }
 }
@@ -443,11 +474,11 @@ struct ContentView: View {
     var body: some View {
         ScalesView(score: score)
             //.padding()
-            .onAppear() {
-                let staff = Staff(score: score, type: .treble, staffNum: 0, linesInStaff: 5)
-                self.score.createStaff(num: 0, staff: staff)
-                var ts = score.createTimeSlice()
-                ts.addNote(n: Note(timeSlice: ts, num: 72, staffNum: 0))
-            }
+//            .onAppear() {
+//                let staff = Staff(score: score, type: .treble, staffNum: 0, linesInStaff: 5)
+//                self.score.createStaff(num: 0, staff: staff)
+//                var ts = score.createTimeSlice()
+//                ts.addNote(n: Note(timeSlice: ts, num: 72, staffNum: 0))
+//            }
     }
 }
