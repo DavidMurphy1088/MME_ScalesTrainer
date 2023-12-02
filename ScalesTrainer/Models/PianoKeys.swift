@@ -51,7 +51,9 @@ class PianoKey: ObservableObject {
     @Published var wasLastKeyPressed = false
     @Published var wasPressed = false
     @Published var isCorrect:Bool? = nil
-    @Published var finger:Int? = nil
+    @Published var correctFinger:Int? = nil
+    @Published var userFinger:Int? = nil
+    @Published var showInfo:Bool = false
 
     var inScale = false
     let midi:Int
@@ -64,15 +66,22 @@ class PianoKey: ObservableObject {
         color = [0,2,4,5,7,9,11].contains(offset) ? .white : .black
     }
     
-//    func setSelected(way:Bool) {
-//        DispatchQueue.main.async {
-//            self.selected = way
-//        }
-//    }
-    func getFingerStr() -> String {
+    func getFingerStr(user:Bool) -> String {
         //return "F:" + (finger == nil ? "_" : "\(finger!)")
-        return "" + (finger == nil ? "" : "\(finger! + 1)")
+        guard let correctFinger = correctFinger else {
+            return ""
+        }
+        guard let userFinger = userFinger else {
+            return ""
+        }
+        if user {
+            return "\(userFinger + 1)"
+        }
+        else {
+            return "\(correctFinger + 1)"
+        }
     }
+    
 }
 
 class PianoKeys: ObservableObject {
@@ -81,7 +90,22 @@ class PianoKeys: ObservableObject {
     init(midi:Int, number:Int) {
         keys = []
         for i in 0...number {
-            keys.append(PianoKey(midi: midi + i))
+            let key = PianoKey(midi: midi + i)
+            keys.append(key)
+            key.inScale = [44, 46, 47, 49, 51, 52, 55, 56,   68, 70, 71, 73, 75, 76, 79, 80].contains(key.midi)
+            key.requiresFingerPrompt = [44,49, 68].contains(key.midi)
+            ///Fingers are zero based !!!
+            ///Do we only need finger when finger cross over thumb -i.e. lefft hard upwards, RH downwards
+            if key.midi == 44 {
+                key.correctFinger = 2
+                //key.showInfo = true
+            }
+            if key.midi == 49 {
+                key.correctFinger = 3
+            }
+            if key.midi == 68 {
+                key.correctFinger = 2
+            }
         }
     }
     
@@ -91,17 +115,30 @@ class PianoKeys: ObservableObject {
                 self.keys[index].wasPressed = false
                 self.keys[index].wasLastKeyPressed = false
                 self.keys[index].isCorrect = nil
-                self.keys[index].finger = nil
-                self.keys[index].inScale = [44, 46, 47, 49, 51, 52, 55, 56,   68, 70, 71, 73, 75, 76, 79, 80].contains(self.keys[index].midi)
-                self.keys[index].requiresFingerPrompt = [44,49].contains(self.keys[index].midi)
+                self.keys[index].userFinger = nil
+                self.keys[index].showInfo = false
             }
         }
     }
     
+    func setShowInfo(midi:Int, way:Bool) {
+        DispatchQueue.main.async {
+            for index in 0..<self.keys.count {
+                if self.keys[index].midi == midi {
+                    self.keys[index].showInfo = way
+                }
+                else {
+                    self.keys[index].showInfo = false
+                }
+            }
+        }
+    }
+
     func gradeAnswer() {
         DispatchQueue.main.async {
             for key in self.keys {
                 //print(key.midi, "grade pressed", key.wasPressed, "inscale", key.inScale)
+                key.wasLastKeyPressed = false
             }
             for key in self.keys {
                 if key.wasPressed {
@@ -109,6 +146,11 @@ class PianoKeys: ObservableObject {
                 }
                 else {
                     if key.inScale {
+                        key.isCorrect = false
+                    }
+                }
+                if key.requiresFingerPrompt {
+                    if key.userFinger != key.correctFinger {
                         key.isCorrect = false
                     }
                 }
@@ -125,7 +167,7 @@ class PianoKeys: ObservableObject {
                     key.wasLastKeyPressed  = true
                     key.wasPressed = true
                 }
-                //print("  ", p.midi, key.midi, key.wasPressed)
+                //print("  setWasPressed", key.midi, key.wasPressed, "needs finger:", key.requiresFingerPrompt, "has finger:", key.finger)
             }
         }
     }
