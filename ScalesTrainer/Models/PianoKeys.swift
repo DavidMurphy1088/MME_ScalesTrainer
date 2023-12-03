@@ -67,7 +67,6 @@ class PianoKey: ObservableObject {
     }
     
     func getFingerStr(user:Bool) -> String {
-        //return "F:" + (finger == nil ? "_" : "\(finger!)")
         guard let correctFinger = correctFinger else {
             return ""
         }
@@ -82,31 +81,77 @@ class PianoKey: ObservableObject {
         }
     }
     
+    func grade() {
+        if self.wasPressed {
+            self.isCorrect = (self.inScale)
+        }
+        else {
+            if self.inScale {
+                self.isCorrect = false
+            }
+        }
+        if self.requiresFingerPrompt {
+            if self.userFinger != self.correctFinger {
+                self.isCorrect = false
+            }
+        }
+    }
 }
 
 class PianoKeys: ObservableObject {
     @Published var keys:[PianoKey]
     
-    init(midi:Int, number:Int) {
-        keys = []
-        for i in 0...number {
-            let key = PianoKey(midi: midi + i)
-            keys.append(key)
-            key.inScale = [44, 46, 47, 49, 51, 52, 55, 56,   68, 70, 71, 73, 75, 76, 79, 80].contains(key.midi)
-            key.requiresFingerPrompt = [44,49, 68].contains(key.midi)
-            ///Fingers are zero based !!!
-            ///Do we only need finger when finger cross over thumb -i.e. lefft hard upwards, RH downwards
-            if key.midi == 44 {
-                key.correctFinger = 2
-                //key.showInfo = true
-            }
-            if key.midi == 49 {
-                key.correctFinger = 3
-            }
-            if key.midi == 68 {
-                key.correctFinger = 2
+    func setFinger(midi:Int, finger:Int) {
+        ///Fingers are zero based !!!
+        for key in keys {
+            if key.midi == midi {
+                key.correctFinger = finger - 1
             }
         }
+    }
+    
+    init(startMidi:Int, number:Int, ascending:Bool, fingerMode:Bool) {
+        keys = []
+        for i in 0...number {
+            let key = PianoKey(midi: startMidi + i)
+            keys.append(key)
+            key.inScale = [44, 46, 47, 49, 51, 52, 55, 56,   68, 70, 71, 73, 75, 76, 79, 80].contains(key.midi)
+            if fingerMode {
+                ///Set the keys that will prompt for a finger
+                ///Do we only need finger when finger cross over thumb -i.e. lefft hard upwards, RH downwards
+                if ascending {
+                    key.requiresFingerPrompt = [44,49,56,    68,71].contains(key.midi)
+                }
+                else {
+                    key.requiresFingerPrompt = [56, 55,  47  ].contains(key.midi)
+                }
+            }
+        }
+        ///LH
+        setFinger(midi: 44, finger: 3)
+        setFinger(midi: 46, finger: 2)
+        setFinger(midi: 47, finger: 1)
+        setFinger(midi: 49, finger: 4)
+        setFinger(midi: 51, finger: 3)
+        setFinger(midi: 52, finger: 2)
+        setFinger(midi: 55, finger: 1)
+        setFinger(midi: 56, finger: 3)
+        
+        ///RH
+        setFinger(midi: 68, finger: 2)
+        setFinger(midi: 70, finger: 3)
+        setFinger(midi: 71, finger: 1)
+        setFinger(midi: 73, finger: 1)
+        setFinger(midi: 75, finger: 1)
+    }
+    
+    func wasAnyKeyPressed() -> Bool {
+        for key in self.keys {
+            if key.wasPressed {
+                return true
+            }
+        }
+        return false
     }
     
     func reset() {
@@ -122,7 +167,7 @@ class PianoKeys: ObservableObject {
     }
     
     func setShowInfo(midi:Int, way:Bool) {
-        DispatchQueue.main.async {
+        //DispatchQueue.main.async {
             for index in 0..<self.keys.count {
                 if self.keys[index].midi == midi {
                     self.keys[index].showInfo = way
@@ -131,35 +176,32 @@ class PianoKeys: ObservableObject {
                     self.keys[index].showInfo = false
                 }
             }
-        }
+        //}
     }
 
-    func gradeAnswer() {
-        DispatchQueue.main.async {
+    func gradeScale() {
+        //DispatchQueue.main.async {
             for key in self.keys {
                 //print(key.midi, "grade pressed", key.wasPressed, "inscale", key.inScale)
                 key.wasLastKeyPressed = false
             }
             for key in self.keys {
-                if key.wasPressed {
-                    key.isCorrect = (key.inScale)
-                }
-                else {
-                    if key.inScale {
-                        key.isCorrect = false
-                    }
-                }
-                if key.requiresFingerPrompt {
-                    if key.userFinger != key.correctFinger {
-                        key.isCorrect = false
-                    }
-                }
+                key.grade()
             }
-        }
+        //}
     }
     
+    func getLastKeyPressed() -> PianoKey? {
+        for key in self.keys {
+            if key.wasLastKeyPressed {
+                return key
+            }
+        }
+        return nil
+    }
+
     func setWasLastKeyPressed(pressedKey:PianoKey) {
-        DispatchQueue.main.async {
+        //DispatchQueue.main.async {
             //print("========setLastPressed")
             for key in self.keys {
                 key.wasLastKeyPressed = false
@@ -168,6 +210,19 @@ class PianoKeys: ObservableObject {
                     key.wasPressed = true
                 }
                 //print("  setWasPressed", key.midi, key.wasPressed, "needs finger:", key.requiresFingerPrompt, "has finger:", key.finger)
+            }
+        //}
+    }
+    
+    func debug(_ ctx:String, midi:Int? = nil) {
+        print("=========Keys", ctx)
+        for key in self.keys {
+            var show = true
+            if let midi = midi {
+                show = key.midi == midi
+            }
+            if show {
+                print("  ", "midi", key.midi, "pressed", key.wasPressed)
             }
         }
     }

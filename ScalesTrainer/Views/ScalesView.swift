@@ -14,7 +14,7 @@ struct SelectScaleView: View {
 }
 
 struct HandView:View {
-    @Binding var lastPianoKeyPressed:PianoKey?
+    //@Binding var lastPianoKeyPressed1:PianoKey?
     @Binding var selectedFinger: Int?
     let frameHeight:Double
     
@@ -36,7 +36,7 @@ struct HandView:View {
                         }
                     }
                 }
-                Image("lh")
+                Image("lefthand")
                     .resizable() // Make the image resizable
                     .scaledToFit() // Scale the image to fit its container
                     .frame(height: frameHeight) // Set the desired width and height
@@ -50,7 +50,9 @@ struct HandView:View {
 struct KeyboardView: View {
     let hand:Int
     @ObservedObject var pianoKeys:PianoKeys
-    var practiceMode:Bool
+    let ascending:Bool
+    @Binding var practiceMode:Bool
+    let fingerMode:Bool
     @Binding var timeAllowed:Double
     @Binding var userMessage:String
 
@@ -67,18 +69,20 @@ struct KeyboardView: View {
     @State var lastGestureTime:Date? = nil
     @State var requiresFingerPrompt = false
     @State var selectedFinger:Int? = nil
-    @State var lastPianoKeyPressed:PianoKey?
     @State var questionMode:QuestionMode = .notStarted
+    @State var anyKeyPressed:Bool = false
 
     let av = AudioSamplerPlayer.getShared()
 
-    init(pianoKeys:PianoKeys, hand:Int, practiceMode:Bool, timeAllowed:Binding<Double>, userMessage:Binding<String>) {
+    init(pianoKeys:PianoKeys, hand:Int, ascending:Bool, practiceMode:Binding<Bool>, fingerMode:Bool, timeAllowed:Binding<Double>, userMessage:Binding<String>) {
         self.pianoKeys = pianoKeys
         self.hand = hand
+        self.ascending = ascending
         _userMessage = userMessage
         blackKeyWidth = whiteKeyWidth * 0.7
         _timeAllowed = timeAllowed
-        self.practiceMode = practiceMode
+        _practiceMode = practiceMode
+        self.fingerMode = fingerMode
     }
     
     func startTimer() {
@@ -88,11 +92,10 @@ struct KeyboardView: View {
                     self.timeRemaining -= 1
                 } else {
                     self.timer?.cancel()
-                    //self.state = .completed
                     self.clickNumber = 0
                     self.timeRemaining = timeAllowed
                     self.questionMode = .inAnswer
-                    pianoKeys.gradeAnswer()
+                    pianoKeys.gradeScale()
                 }
             }
     }
@@ -107,17 +110,18 @@ struct KeyboardView: View {
         return 0.0
     }
     
-    func getName() -> String {
-        return hand == 0 ? "Right Hand" : "Left Hand"
+    func getName(ascending:Bool) -> String {
+        var name = hand == 0 ? "Right Hand" : "Left Hand"
+        name = name + (ascending ? " Ascending" : " Descending")
+        return name
     }
     
-    func playScale() {
+    func playScale(ascending:Bool) {
         DispatchQueue.global(qos: .background).async {
             var lastKey:PianoKey?
-            for key in pianoKeys.keys {
+            for i in 0..<pianoKeys.keys.count {
+                let key = pianoKeys.keys[ascending ? i : pianoKeys.keys.count-i-1]
                 if key.inScale {
-                //DispatchQueue.global(qos: .background).async {
-                    //lastPianoKeyPressed = key
                     DispatchQueue.global(qos: .background).async {
                         av.play(note: UInt8(key.midi))
                     }
@@ -134,59 +138,78 @@ struct KeyboardView: View {
         }
     }
     
+    func startOver() {
+        pianoKeys.reset()
+        requiresFingerPrompt = false
+        selectedFinger = nil
+        if !practiceMode {
+            startTimer()
+            questionMode = .inQuestion
+        }
+    }
+    
     func buttonsView() -> some View {
         HStack {
-            Text(getName()).font(.title).padding()
+            Text(getName(ascending: ascending)).font(.title).padding()
 
+            if practiceMode {
+                if pianoKeys.wasAnyKeyPressed() {
+                    Button(action: {
+                        DispatchQueue.main.async {
+                            startOver()
+                        }
+                    }) {
+                        Text("Try Again").font(.title)
+                    }
+                    .padding()
+                }
+            }
+            else {
+                if self.questionMode == .inAnswer {
+                    Button(action: {
+                        DispatchQueue.main.async {
+                            startOver()
+                        }
+                    }) {
+                        Text("Try Again").font(.title)
+                    }
+                    .padding()
+                }
+            }
+            
             if !practiceMode {
                 Button(action: {
-                    //state = .started
-                    pianoKeys.reset()
-                    requiresFingerPrompt = false
-                    selectedFinger = nil
-                    //if questionMode == .inQuestion {
-                    startTimer()
-                    //}
-                    questionMode = .inQuestion
+                    startOver()
                 }) {
                     if questionMode == .notStarted {
                         Text("Start Scale").font(.title)
                     }
                 }
                 .padding()
+                if questionMode == .inQuestion {
+                    CircularProgressView(progress: CGFloat(self.timeRemaining) / 30.0, timeRemaining: Int(timeRemaining))
+                        .frame(width: 50, height: 50)
+                        .padding(20)
+                }
             }
             
-            if questionMode == .inQuestion {
-                CircularProgressView(progress: CGFloat(self.timeRemaining) / 30.0, timeRemaining: Int(timeRemaining))
-                    .frame(width: 50, height: 50)
-                    .padding(20)
-            }
             if questionMode == .inAnswer {
                 Button(action: {
-                    playScale()
+                    playScale(ascending: ascending)
                 }) {
                     Text("Play Scale").font(.title)
                 }
                 .padding()
-                Button(action: {
-                    questionMode = .notStarted
-                    pianoKeys.reset()
-                }) {
-                    Text("Try Again").font(.title)
-                }
-                .padding()
+                
+//                Button(action: {
+//                    questionMode = .notStarted
+//                    pianoKeys.reset()
+//                }) {
+//                    Text("Try Again").font(.title)
+//                }
+//                .padding()
             }
         }
-    }
-    
-    func requiresFingerNumber(pianoKey:PianoKey) -> Bool {
-        if pianoKey.requiresFingerPrompt {
-            ///Dont sound the note if user has already sounded it and given finger
-            if pianoKey.userFinger == nil {
-                return true
-            }
-        }
-        return false
     }
     
     func soundNote(pianoKey:PianoKey, gesture: DragGesture.Value)  {
@@ -202,35 +225,59 @@ struct KeyboardView: View {
         }
         if doTap {
             self.lastGestureTime = gesture.time
-            pianoKeys.setWasLastKeyPressed(pressedKey: pianoKey)
-            print("================ Tap", pianoKey.midi)
+            //pianoKeys.setWasLastKeyPressed(pressedKey: pianoKey)
+            //print("================ Tap", pianoKey.midi)
             av.play(note: UInt8(pianoKey.midi))
             clickNumber += 1
         }
     }
     
-    func processGesture(pianoKey:PianoKey, gesture:DragGesture.Value) {
-        lastPianoKeyPressed = pianoKey
+    func processGesture(pianoKey:PianoKey, gesture:DragGesture.Value, practiceMode:Bool) {
+        if !practiceMode {
+            if questionMode == .notStarted {
+                return
+            }
+        }
+        if practiceMode {
+            pianoKeys.setWasLastKeyPressed(pressedKey: pianoKey)
+        }
+        else {
+            if questionMode == .inQuestion {
+                pianoKeys.setWasLastKeyPressed(pressedKey: pianoKey)
+            }
+        }
         requiresFingerPrompt = false
         selectedFinger = nil
         if questionMode == .inQuestion {
-            if requiresFingerNumber(pianoKey: pianoKey) {
-                if pianoKey.userFinger == nil {
-                    //self.userMessage = "Which finger ?"
-                    requiresFingerPrompt = true
-                    return
+            if fingerMode {
+                if pianoKey.requiresFingerPrompt {
+                    if pianoKey.userFinger == nil {
+                        requiresFingerPrompt = true
+                        return
+                    }
                 }
             }
         }
-
+        if practiceMode {
+            pianoKey.grade()
+        }
         soundNote(pianoKey: pianoKey, gesture: gesture)
     }
     
     func showInfo(_ pianoKey:PianoKey)  {
         var show = false
-        if questionMode == .inAnswer {
-            if pianoKey.inScale || pianoKey.wasPressed {
-                show = true
+        if practiceMode {
+            if let correct = pianoKey.isCorrect {
+                if !correct {
+                    show = true
+                }
+            }
+        }
+        else {
+            if questionMode == .inAnswer {
+                if pianoKey.inScale || pianoKey.wasPressed {
+                    show = true
+                }
             }
         }
         pianoKeys.setShowInfo(midi: pianoKey.midi, way: show)
@@ -245,14 +292,16 @@ struct KeyboardView: View {
                 HStack(spacing: 0) {
                     ForEach(0..<pianoKeys.keys.count, id: \.self) { index in
                         if pianoKeys.keys[index].color == .white {
-                            PianoKeyView(id:index, pianoKey: pianoKeys.keys[index], questionMode: $questionMode)
+                            PianoKeyView(id:index, pianoKey: pianoKeys.keys[index], questionMode: $questionMode, fingerMode: fingerMode)
                             .frame(width: whiteKeyWidth, height: whiteKeyHeight)
                             .gesture(
                                 DragGesture(minimumDistance: 0)
                                     .onChanged(
                                         { gesture in
-                                            processGesture(pianoKey: pianoKeys.keys[index], gesture: gesture)
-                                            showInfo(pianoKeys.keys[index])
+                                            DispatchQueue.main.async {
+                                                processGesture(pianoKey: pianoKeys.keys[index], gesture: gesture, practiceMode: practiceMode)
+                                                showInfo(pianoKeys.keys[index])
+                                            }
                                         }
                                     )
                                 )
@@ -265,16 +314,16 @@ struct KeyboardView: View {
                 HStack(spacing: 0) {
                     ForEach(0..<pianoKeys.keys.count, id: \.self) { index in
                         if pianoKeys.keys[index].color == .black {
-                            PianoKeyView(id:index, pianoKey: pianoKeys.keys[index], questionMode: $questionMode)
+                            PianoKeyView(id:index, pianoKey: pianoKeys.keys[index], questionMode: $questionMode, fingerMode: fingerMode)
                             .frame(width: blackKeyWidth, height: whiteKeyHeight * 0.60)
                             .gesture(
                                 DragGesture(minimumDistance: 0)
                                     .onChanged(
                                         { gesture in
-                                            processGesture(pianoKey: pianoKeys.keys[index], gesture: gesture)
-                                            showInfo(pianoKeys.keys[index]) //{
-                                                //pianoKeys.setShowInfo(midi: pianoKeys.keys[index].midi, way: true)
-                                            //}
+                                            DispatchQueue.main.async {
+                                                processGesture(pianoKey: pianoKeys.keys[index], gesture: gesture, practiceMode: practiceMode)
+                                                showInfo(pianoKeys.keys[index])
+                                            }
                                         }
                                     )
                                 )
@@ -293,14 +342,32 @@ struct KeyboardView: View {
             self.timeRemaining = self.timeAllowed
             pianoKeys.reset()
             Settings.shared.useUpstrokeTaps = false
+            if practiceMode {
+                questionMode = .inQuestion
+            }
+        }
+        .onChange(of: practiceMode) { mode in
+            self.questionMode = .notStarted
+        }
+        .onChange(of: timeAllowed) { mode in
+            self.timeRemaining = timeAllowed
         }
         .onChange(of: selectedFinger) { finger in
-            if let lastPianoKeyPressed = lastPianoKeyPressed {
-                pianoKeys.setWasLastKeyPressed(pressedKey: lastPianoKeyPressed)
+            if finger == nil {
+                return
+            }
+            if let lastPianoKeyPressed = pianoKeys.getLastKeyPressed() {
+                lastPianoKeyPressed.userFinger = finger
                 av.play(note: UInt8(lastPianoKeyPressed.midi))
-                if let finger = finger {
-                    lastPianoKeyPressed.userFinger = finger
-                    print("============Finger set", lastPianoKeyPressed.midi, finger)
+                if practiceMode {
+                    lastPianoKeyPressed.grade()
+                    print("=============== Finger selected", "midi", lastPianoKeyPressed.midi, "correct", lastPianoKeyPressed.isCorrect ?? "NIL")
+
+                    if let correct = lastPianoKeyPressed.isCorrect {
+                        if !correct {
+                            showInfo(lastPianoKeyPressed)
+                        }
+                    }
                 }
             }
             requiresFingerPrompt = false
@@ -308,18 +375,18 @@ struct KeyboardView: View {
         }
         
         HandView(
-            lastPianoKeyPressed: $lastPianoKeyPressed,
+            //lastPianoKeyPressed: $lastPianoKeyPressed,
             selectedFinger: $selectedFinger,
             frameHeight: 50)
         .opacity(requiresFingerPrompt ? 1.0 : 0.0)
     }
 }
 
-enum PlayState {
-    case notStarted
-    case started
-    case completed
-}
+//enum PlayState {
+//    case notStarted
+//    case started
+//    case completed
+//}
 
 enum QuestionMode {
     case notStarted
@@ -329,11 +396,12 @@ enum QuestionMode {
 
 struct ScalesView: View {
     @ObservedObject var score:Score
-    var pianoKeysLH = PianoKeys(midi: 36, number: 24)
-    var pianoKeysRH = PianoKeys(midi: 60, number: 24)
-    @State var timeAllowed:Double = 12.0
+
+    @State var timeAllowed:Double = 0.0
     @State var userMessage = ""
-    @State var practiceMode = false
+    @State var practiceMode = true
+    @State var fingerMode = false
+    @State var ascending = false
 
     init(score:Score) {
         self.score = score
@@ -344,9 +412,28 @@ struct ScalesView: View {
             Text("Scale Trainer").font(.title).padding()
             HStack {
                 SelectScaleView().padding()
+                
                 Button(action: {
-                    DispatchQueue.main.async {
-                        practiceMode.toggle()
+                    ascending.toggle()
+                }) {
+                    HStack {
+                        Image(systemName: ascending ? "arrow.up" : "arrow.down")
+                            .resizable()
+                            .foregroundColor(.green)
+                            .aspectRatio(contentMode: .fit)
+                            .frame(height: 60)
+                        Text("\(ascending ? "Ascending" : "Descending")").font(.title)
+                    }
+                }
+                .padding()
+                
+                Button(action: {
+                    practiceMode.toggle()
+                    if !practiceMode {
+                        timeAllowed = 10.0
+                        if fingerMode {
+                            timeAllowed += 5
+                        }
                     }
                 }) {
                     HStack {
@@ -355,20 +442,56 @@ struct ScalesView: View {
                     }
                 }
                 .padding()
-                HStack {
-                    Text("Time Allowed \(Int(self.timeAllowed))").font(.title).padding()
-                    Slider(value: $timeAllowed, in: 0...20, step: 1.0).padding()
+                
+                Button(action: {
+                    fingerMode.toggle()
+                }) {
+                    HStack {
+                        Image("lefthand")
+                            .resizable()
+                            .foregroundColor(fingerMode ? .green : .gray)
+                            .scaledToFit()
+                            .frame(height: 60)
+                            
+                        Text("Check Fingers").font(.title).foregroundColor(fingerMode ? .green : .gray)
+                    }
                 }
                 .padding()
+            }
+            
+            if !practiceMode {
+                HStack {
+                    Text("     ").padding()
+                    HStack {
+                        Text("Time Allowed \(Int(self.timeAllowed))").font(.title)
+                        Slider(value: $timeAllowed, in: 3...20, step: 1.0)
+                    }
+                    .padding()
+                    Text("     ").padding()
+                }
             }
 
             //ScoreView(score: score).padding()
             
             //ToolsView(score: score, helpMetronome: "")
                         
-            KeyboardView(pianoKeys: pianoKeysRH, hand: 0, practiceMode: self.practiceMode, timeAllowed: $timeAllowed, userMessage: $userMessage).padding()
+            KeyboardView(pianoKeys: PianoKeys(startMidi: 60, number: 24, ascending: ascending, fingerMode: fingerMode),
+                         hand: 0,
+                         ascending: ascending,
+                         practiceMode: $practiceMode,
+                         fingerMode: fingerMode,
+                         timeAllowed: $timeAllowed,
+                         userMessage: $userMessage)
+            .padding()
 
-            KeyboardView(pianoKeys: pianoKeysLH, hand: 1, practiceMode: self.practiceMode, timeAllowed: $timeAllowed, userMessage: $userMessage).padding()
+            KeyboardView(pianoKeys: PianoKeys(startMidi: 36, number: 24, ascending: ascending, fingerMode: fingerMode),
+                         hand: 1,
+                         ascending: ascending,
+                         practiceMode: $practiceMode,
+                         fingerMode: fingerMode,
+                         timeAllowed: $timeAllowed,
+                         userMessage: $userMessage)
+            .padding()
             
             Text(userMessage).opacity(self.userMessage.count == 0 ? 0.0 : 1.0).font(.title).padding()
 
