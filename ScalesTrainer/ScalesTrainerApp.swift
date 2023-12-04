@@ -13,7 +13,8 @@ struct ScalesTrainerApp: App {
 
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            //ContentView()
+            ScalesView()
                 .environment(\.managedObjectContext, persistenceController.container.viewContext)
         }
     }

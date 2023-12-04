@@ -4,9 +4,7 @@ import SwiftUI
 struct PianoKeyView: View {
     let id:Int
     @ObservedObject var pianoKey:PianoKey
-    @Binding var questionMode:QuestionMode
-    let fingerMode:Bool
-    
+    let keyDisplayView: any KeyDisplayViewType
     var cornerRadius: CGFloat = 6
 
     var borderColor: Color = .black
@@ -22,96 +20,105 @@ struct PianoKeyView: View {
         }
     }
     
-    func isWrongFinger() -> Bool {
-        var wrongFinger = false
-        if fingerMode {
-            if pianoKey.requiresFingerPrompt {
-                if let userFinger = pianoKey.userFinger {
-                    if userFinger != pianoKey.correctFinger {
-                        wrongFinger = true
-                    }
-                }
-                else {
-                    wrongFinger = true
-                }
-            }
-        }
-        return wrongFinger
-    }
+//    func fingerIsCorrect() -> Bool {
+//        if !fingerMode {
+//            return true
+//        }
+//        if pianoKey.requiresFingerPrompt {
+//            if let userFinger = pianoKey.userFinger {
+//                return userFinger == pianoKey.correctFinger
+//            }
+//            else {
+//                return false
+//            }
+//        }
+//        else {
+//            return true
+//        }
+//    }
     
-    func isWrongNote() -> Bool {
-        if !pianoKey.inScale {
-            return true
-        }
-        if !pianoKey.wasPressed {
-            return true
-        }
-        return false
-    }
+//    func showFingers() -> Bool {
+//        if !fingerMode {
+//            return false
+//        }
+//        if !pianoKey.requiresFingerPrompt {
+//            return false
+//        }
+//        return true
+//    }
     
-    func noteText(pianoKey:PianoKey) -> some View {
-        VStack {
-            Spacer()
-            if let correct = pianoKey.isCorrect {
-                VStack {
-                    if correct {
-                        Image(systemName: "checkmark").resizable().frame(width: imageSize, height: imageSize).foregroundColor(.green).bold()
-                    }
-                    else {
-                        if isWrongNote() {
-                            if pianoKey.inScale {
-                                Image(systemName: "questionmark").resizable().frame(width: imageSize, height: imageSize).foregroundColor(.red).bold()
-                            }
-                            else {
-                                Image(systemName: "scribble.variable").resizable().frame(width: imageSize, height: imageSize).foregroundColor(.red).bold()
-                            }
-                        }
-                        else {
-                            if isWrongFinger() {
-                                Image(systemName: "hand.raised").resizable().frame(width: imageSize, height: imageSize).foregroundColor(.red).bold()
-                            }
-                        }
+//    func fingersCorrect() -> Bool {
+//        if let fingerIsCorrect = pianoKey.fingerIsCorrect {
+//            return fingerIsCorrect
+//        }
+//        return false
+//    }
 
-                    }
-                }
-                .padding(.bottom, 30)
-            }
+    func noteDisplay(pianoKey:PianoKey) -> some View {
+        VStack {
+//            Spacer()
+//            if let noteIsCorrect = pianoKey.noteIsCorrect {
+//                VStack {
+//                    if !noteIsCorrect {
+//                        if pianoKey.inScale {
+//                            Image(systemName: "questionmark").resizable().frame(width: imageSize, height: imageSize).foregroundColor(.red).bold()
+//                        }
+//                        else {
+//                            Image(systemName: "scribble.variable").resizable().frame(width: imageSize, height: imageSize).foregroundColor(.red).bold()
+//                        }
+//                    }
+//                    else {
+//                        if showFingers() {
+//                            if fingersCorrect() {
+//                                Image(systemName: "checkmark").resizable().frame(width: imageSize, height: imageSize).foregroundColor(.green).bold()
+//                            }
+//                            else {
+//                                //Image("lefthand").resizable().frame(width: imageSize, height: imageSize).foregroundColor(.red).bold()
+//                                Image(systemName: "hand.raised.fill").resizable().frame(width: imageSize, height: imageSize).foregroundColor(.red).bold()
+//                            }
+//                        }
+//                        else {
+//                            Image(systemName: "checkmark").resizable().frame(width: imageSize, height: imageSize).foregroundColor(.green).bold()
+//                        }
+//                    }
+//                }
+//                .padding(.bottom, 30)
+//            }
         }
     }
         
     func explanationView(pianoKey: PianoKey) -> some View {
         VStack {
-            if let correct = pianoKey.isCorrect {
-                let wrongFinger = isWrongFinger()
-                let wrongNote = isWrongNote()
-
-                HStack {
-                    Image(systemName: "circle.fill")
-                        .foregroundColor(wrongNote ? .red : .green)
-                    Text("Notes").foregroundColor(Color.white).font(.title)
-                }
-                if wrongNote {
-                    if pianoKey.inScale {
-                        Text("This note was missing").foregroundColor(Color.white)
-                    }
-                    else {
-                        Text("This note is not in the scale").foregroundColor(Color.white)
-                    }
-                }
-                else {
-                    if fingerMode {
-                        HStack {
-                            Image(systemName: "circle.fill")
-                                .foregroundColor(wrongFinger ? .red : .green)
-                            Text("Fingers").foregroundColor(Color.white).font(.title)
-                        }
-                        //if wrongFinger {
-                            Text("Correct \(pianoKey.getFingerStr(user: false))").foregroundColor(Color.white)
-                            Text("Yours   \(pianoKey.getFingerStr(user: true))").foregroundColor(Color.white)
-                        //}
-                    }
-                }
-            }
+//            if let noteIsCorrect = pianoKey.noteIsCorrect {
+//                HStack {
+//                    Image(systemName: "circle.fill").foregroundColor(noteIsCorrect ? .green : .red)
+//                    Text("Note").foregroundColor(Color.white).font(.title)
+//                }
+//
+//                if !noteIsCorrect {
+//                    if pianoKey.inScale {
+//                        Text("This note was missing").foregroundColor(Color.white)
+//                    }
+//                    else {
+//                        Text("This note is not in the scale").foregroundColor(Color.white)
+//                    }
+//                }
+//                if noteIsCorrect {
+//                    if showFingers() {
+//                        if pianoKey.requiresFingerPrompt {
+//                            HStack {
+//                                Image(systemName: "circle.fill").foregroundColor(fingerIsCorrect() ? .green : .red)
+//                                Text("Finger").foregroundColor(Color.white).font(.title)
+//                            }
+//                            if !fingerIsCorrect() {
+//                                Text("Correct \(pianoKey.getFingerStr(user: false))").foregroundColor(Color.white)
+//                                Text("Your \(pianoKey.getFingerStr(user: true))").foregroundColor(Color.white)
+//                            }
+//
+//                        }
+//                    }
+//                }
+//            }
         }
         .frame(width: 200, height: 200) // Larger than the underlying Image
         .background(Color.blue.opacity(1.0))
@@ -164,11 +171,18 @@ struct PianoKeyView: View {
                 )
             }
             VStack {
-                noteText(pianoKey: pianoKey)
+                noteDisplay(pianoKey: pianoKey)
+                //keyDisplayView
             }
         }
         .overlay(
             pianoKey.showInfo ? explanationView(pianoKey: pianoKey) : nil
+        )
+        .overlay(
+            VStack {
+                Spacer()
+                Text("\(pianoKey.midi)").bold().foregroundColor(pianoKey.color == .white ? Color.black : Color.white)
+            }
         )
     }
 }
