@@ -47,7 +47,11 @@ enum KeyColor {
     case black
 }
 
-class PianoKey: ObservableObject {
+class PianoKey: ObservableObject, Equatable {
+    static func == (lhs: PianoKey, rhs: PianoKey) -> Bool {
+        return lhs.midi == rhs.midi
+    }
+    
     @Published var wasLastKeyPressed = false
     @Published var wasPressed = false
     //@Published var noteIsCorrect:Bool? = nil
@@ -90,6 +94,7 @@ class Piano: ObservableObject {
     @Published var keys:[PianoKey]
     let av = AudioSamplerPlayer.getShared()
     var lastGestureTime:Date? = nil
+    @Published var lastKeyPressed = 0
 
     init(startMidi:Int, number:Int) {
         keys = []
@@ -133,9 +138,7 @@ class Piano: ObservableObject {
         if doTap {
             self.lastGestureTime = gesture.time
             setWasLastKeyPressed(pressedKey: key)
-            //print("================ Tap", pianoKey.midi)
-            av.play(note: UInt8(key.midi))
-            //clickNumber += 1
+            
         }
     }
 
@@ -177,24 +180,27 @@ class Piano: ObservableObject {
 //        //}
 //    }
     
-    func getLastKeyPressed() -> PianoKey? {
+    func getLastKeyPressed() -> PianoKey {
         for key in self.keys {
             if key.wasLastKeyPressed {
                 return key
             }
         }
-        return nil
+        return PianoKey(midi: 0)
     }
 
     func setWasLastKeyPressed(pressedKey:PianoKey) {
-        for key in self.keys {
-            if key.midi == pressedKey.midi {
-                //key.wasLastKeyPressed  = true
-                //key.wasPressed = true
-                key.setLastKeyPressed(way: true)
-            }
-            else {
-                key.setLastKeyPressed(way: false)
+        DispatchQueue.main.async {
+            for key in self.keys {
+                if key.midi == pressedKey.midi {
+                    key.wasPressed = true
+                    key.setLastKeyPressed(way: true)
+                    self.av.play(note: UInt8(key.midi))
+                    self.lastKeyPressed = key.midi
+                }
+                else {
+                    key.setLastKeyPressed(way: false)
+                }
             }
         }
     }

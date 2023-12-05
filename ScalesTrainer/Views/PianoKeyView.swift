@@ -1,15 +1,21 @@
 import Foundation
 import SwiftUI
 
-struct PianoKeyView: View {
+///View that a key wil display
+protocol InsideKeyViewType: View {
+    init(keyString: String, key :PianoKey)
+}
+
+struct PianoKeyView<InsideKeyView>: View where InsideKeyView: InsideKeyViewType {
     let id:Int
+    @ObservedObject var piano:Piano
     @ObservedObject var pianoKey:PianoKey
-    let keyDisplayView: any KeyDisplayViewType
+    let insideKeyView: InsideKeyView
+
     var cornerRadius: CGFloat = 6
 
     var borderColor: Color = .black
     var borderWidth: CGFloat = 1
-    var imageSize = 25.0
     
     func getColor(_ key:PianoKey) -> Color {
         if key.wasLastKeyPressed {
@@ -56,34 +62,6 @@ struct PianoKeyView: View {
 
     func noteDisplay(pianoKey:PianoKey) -> some View {
         VStack {
-//            Spacer()
-//            if let noteIsCorrect = pianoKey.noteIsCorrect {
-//                VStack {
-//                    if !noteIsCorrect {
-//                        if pianoKey.inScale {
-//                            Image(systemName: "questionmark").resizable().frame(width: imageSize, height: imageSize).foregroundColor(.red).bold()
-//                        }
-//                        else {
-//                            Image(systemName: "scribble.variable").resizable().frame(width: imageSize, height: imageSize).foregroundColor(.red).bold()
-//                        }
-//                    }
-//                    else {
-//                        if showFingers() {
-//                            if fingersCorrect() {
-//                                Image(systemName: "checkmark").resizable().frame(width: imageSize, height: imageSize).foregroundColor(.green).bold()
-//                            }
-//                            else {
-//                                //Image("lefthand").resizable().frame(width: imageSize, height: imageSize).foregroundColor(.red).bold()
-//                                Image(systemName: "hand.raised.fill").resizable().frame(width: imageSize, height: imageSize).foregroundColor(.red).bold()
-//                            }
-//                        }
-//                        else {
-//                            Image(systemName: "checkmark").resizable().frame(width: imageSize, height: imageSize).foregroundColor(.green).bold()
-//                        }
-//                    }
-//                }
-//                .padding(.bottom, 30)
-//            }
         }
     }
         
@@ -171,8 +149,8 @@ struct PianoKeyView: View {
                 )
             }
             VStack {
-                noteDisplay(pianoKey: pianoKey)
-                //keyDisplayView
+                //noteDisplay(pianoKey: pianoKey)
+                insideKeyView
             }
         }
         .overlay(
@@ -186,3 +164,4 @@ struct PianoKeyView: View {
         )
     }
 }
+

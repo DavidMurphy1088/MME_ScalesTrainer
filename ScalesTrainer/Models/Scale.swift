@@ -1,4 +1,5 @@
 import Foundation
+
 class Scale {
     let name:String
     let scaleOffsets = [0, 2, 3, 5, 7, 8, 11]
@@ -37,6 +38,11 @@ class Scale {
         return inScale
     }
     
+    func getRequiredFinger(midi:Int) -> Int? {
+        let offset = (midi - 32) % 12
+        return offset == 0 ? 3 : nil
+    }
+    
     func getCorrectFingerStr(rightHand:Bool) -> String {
 //        if rightHand {
 //            return "\(correctFingerRH + 1)"
@@ -69,6 +75,7 @@ class Scale {
 //            }
 //        }
     }
+    
     func setFinger(midi:Int, rightHand:Bool, finger:Int, _ required:Bool? = nil) {
         ///Fingers are zero based !!!
 //        for key in keys {

@@ -3,20 +3,20 @@ import SwiftUI
 import CommonLibrary
 import Combine
 
-struct KeyboardView: View {
-    @ObservedObject var piano:Piano
-    let keyDisplayView: any KeyDisplayViewType
-    
-    //@Binding var rightHand:Bool
-    //let ascending:Bool
-    //@Binding var timedMode:Bool
-    //let fingerMode:Bool
-    //@Binding var timeAllowed:Double
-    //@Binding var userMessage:String
+protocol KeyDownAction: View {
+    init(key:PianoKey)
+}
 
-    //@State var timeRemaining:Double = 0.0
-    //@State var offset = 0.0
+protocol Action: View {
+    init(piano:Piano)
+}
+
+struct KeyboardView<InsideKeyView, ActionView>: View where InsideKeyView: InsideKeyViewType, ActionView:Action {
     
+    @ObservedObject var piano:Piano
+    let keyDisplayView: InsideKeyView
+    let action:ActionView
+
     @State var whiteKeyWidth = 1.0
     @State var blackKeyWidth = 0.0
     
@@ -29,12 +29,15 @@ struct KeyboardView: View {
     //@State var questionMode:QuestionMode = .notStarted
     @State var anyKeyPressed:Bool = false
     @State var handViewHeight = 0.0
+    @State var showingSheet = false
+    @State var currentMidi = 0
 
-
-//    init(piano:Piano, rightHand:Binding<Bool>, ascending:Bool, timedMode:Binding<Bool>, fingerMode:Bool, timeAllowed:Binding<Double>, userMessage:Binding<String>) {
-    init(piano:Piano, keyDisplayView: any KeyDisplayViewType) {
+    init(piano:Piano, keyDisplayView: InsideKeyView, action: ActionView) {
         self.piano = piano
         self.keyDisplayView = keyDisplayView
+        self.action = action
+        
+        //self.keyDownAction = keyDownAction
         
 //        _rightHand = rightHand
 //        self.ascending = ascending
@@ -76,95 +79,9 @@ struct KeyboardView: View {
         return name
     }
 
-//    func startOver() {
-//        pianoKeys.reset()
-//        requiresFingerPrompt = false
-//        selectedFinger = nil
-//        if timedMode {
-//            //startTimer()
-//            questionMode = .inQuestion
-//        }
-//    }
-    
     func buttonsView() -> some View {
         HStack {
-//            Text(getName(ascending: ascending)).font(.title).padding()
-
-//            if !timedMode {
-//                //if pianoKeys.wasAnyKeyPressed() {
-//                    Button(action: {
-//                        DispatchQueue.main.async {
-//                            startOver()
-//                        }
-//                    }) {
-//                        Text("Clear").font(.title)
-//                    }
-//                    .padding()
-//                //}
-//            }
-//            else {
-//                if self.questionMode == .inAnswer {
-//                    Button(action: {
-//                        DispatchQueue.main.async {
-//                            startOver()
-//                        }
-//                    }) {
-//                        Text("Try Again").font(.title)
-//                    }
-//                    .padding()
-//                }
-//            }
-//
-//            if timedMode {
-//                Button(action: {
-//                    startOver()
-//                }) {
-//                    if questionMode == .notStarted {
-//                        Text("Start Scale").font(.title)
-//                    }
-//                }
-//                .padding()
-//                if questionMode == .inQuestion {
-//                    CircularProgressView(progress: CGFloat(self.timeRemaining) / 30.0, timeRemaining: Int(timeRemaining))
-//                        .frame(width: 50, height: 50)
-//                        .padding(20)
-//                }
-//            }
-            
-
         }
-    }
-    
-    func processGesture(pianoKey:PianoKey, gesture:DragGesture.Value) { //}, timedMode:Bool) {
-//        if timedMode {
-//            if questionMode == .notStarted {
-//                return
-//            }
-//        }
-//        if !timedMode {
-//            pianoKeys.setWasLastKeyPressed(pressedKey: pianoKey)
-//        }
-//        else {
-//            if questionMode == .inQuestion {
-//                pianoKeys.setWasLastKeyPressed(pressedKey: pianoKey)
-//            }
-//        }
-//        requiresFingerPrompt = false
-//        selectedFinger = nil
-//        if questionMode == .inQuestion {
-//            if fingerMode {
-//                if pianoKey.requiresFingerPrompt {
-//                    if pianoKey.userFinger == nil {
-//                        requiresFingerPrompt = true
-//                        return
-//                    }
-//                }
-//            }
-//        }
-//        if !timedMode {
-//            pianoKey.grade()
-//        }
-        piano.processGesture(key:pianoKey, gesture: gesture)
     }
     
     func showInfo(_ pianoKey:PianoKey)  {
@@ -190,7 +107,6 @@ struct KeyboardView: View {
 //                }
 //            }
 //        }
-
         piano.setShowInfo(midi: pianoKey.midi, way: show)
     }
     
@@ -203,17 +119,18 @@ struct KeyboardView: View {
                 HStack(spacing: 0) {
                     ForEach(0..<piano.keys.count, id: \.self) { index in
                         if piano.keys[index].color == .white {
-                            PianoKeyView(id:index, pianoKey: piano.keys[index],
-                                         keyDisplayView: keyDisplayView) //, questionMode: $questionMode, fingerMode: fingerMode)
+                            PianoKeyView(id:index, piano: piano,
+                                         pianoKey: piano.keys[index],
+                                         insideKeyView: InsideKeyView(keyString: "", key: piano.keys[index]))
                             .frame(width: whiteKeyWidth, height: whiteKeyHeight)
                             .gesture(
                                 DragGesture(minimumDistance: 0)
                                     .onChanged(
                                         { gesture in
-                                            DispatchQueue.main.async {
-                                                processGesture(pianoKey: piano.keys[index], gesture: gesture) //, timedMode: timedMode)
-                                                showInfo(piano.keys[index])
-                                            }
+                                            currentMidi = piano.keys[index].midi
+                                            showingSheet.toggle()
+                                            piano.processGesture(key:piano.keys[index], gesture: gesture)
+                                            showInfo(piano.keys[index])
                                         }
                                     )
                                 )
@@ -226,30 +143,35 @@ struct KeyboardView: View {
                 HStack(spacing: 0) {
                     ForEach(0..<piano.keys.count, id: \.self) { index in
                         if piano.keys[index].color == .black {
-                            PianoKeyView(id:index, pianoKey: piano.keys[index],
-                                         keyDisplayView: keyDisplayView) //, questionMode: $questionMode, fingerMode: fingerMode)
+                            PianoKeyView(id:index,
+                                         piano: piano,
+                                         pianoKey: piano.keys[index],
+                                         insideKeyView: InsideKeyView(keyString: "", key: piano.keys[index]))
                             .frame(width: blackKeyWidth, height: whiteKeyHeight * 0.60)
                             .gesture(
                                 DragGesture(minimumDistance: 0)
                                     .onChanged(
                                         { gesture in
-                                            DispatchQueue.main.async {
-                                                processGesture(pianoKey: piano.keys[index], gesture: gesture) //, timedMode: timedMode)
-                                                showInfo(piano.keys[index])
-                                            }
+                                            //processGesture(pianoKey: piano.keys[index], gesture: gesture) //, timedMode: timedMode)
+                                            piano.processGesture(key:piano.keys[index], gesture: gesture)
+                                            showInfo(piano.keys[index])
                                         }
                                     )
                                 )
+
                             Spacer().frame(width: whiteKeyWidth - blackKeyWidth)
                         }
                         else {
                             Spacer().frame(width: getBlackSpacing(index: index))
                         }
+                        
                     }
                 }
                 .padding(.leading, whiteKeyWidth - blackKeyWidth / 2.0)
+                action
             }
         }
+
         .border(.blue)
         .onAppear() {
             let screenSize = UIScreen.main.bounds
@@ -309,22 +231,14 @@ struct KeyboardView: View {
         
 }
 
-struct PianoView<Content>: View where Content: KeyDisplayViewType {
-//struct PianoView: View {
+struct PianoView<InsideKeyView, ActionView>: View where InsideKeyView: InsideKeyViewType, ActionView:Action {
     @ObservedObject var piano:Piano
-    let keyDisplayView: Content
+    let keyDisplayView: InsideKeyView
+    let action:ActionView
     
     var body: some View {
         VStack {
-//            KeyboardView(pianoKeys: Piano(rightHand:rightHand, startMidi: rightHand ? 60 : 36, number: 36, ascending: ascending),
-//                         rightHand: $rightHand,
-//                         ascending: ascending,
-//                         timedMode: $timedMode,
-//                         fingerMode: fingerMode,
-//                         timeAllowed: $timeAllowed,
-//                         userMessage: $userMessage)
-            KeyboardView(piano:piano, keyDisplayView: keyDisplayView)
-            keyDisplayView
+            KeyboardView(piano:piano, keyDisplayView: keyDisplayView, action: action)
         }
     }
 }

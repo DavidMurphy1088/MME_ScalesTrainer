@@ -53,6 +53,24 @@ enum QuestionMode {
     case inAnswer
 }
 
+struct KeyActionView: KeyDownAction {
+    //let keyString: String
+    @ObservedObject var key:PianoKey
+    var imageSize = 25.0
+    @State var scale = Scale(name: "A\u{266D} Harmonic Minor")
+    
+    init(key:PianoKey) {
+        //self.keyString = keyString
+        self.key = key
+    }
+    
+    var body: some View {
+        VStack {
+            Text("XV")
+        }
+    }
+}
+
 struct ScalesView: View {
     @State var timeAllowed:Double = 0.0
     @State var userMessage = ""
@@ -146,6 +164,10 @@ struct ScalesView: View {
         }
     }
     
+    func testAction(a:Int) {
+        print("====================action", a)
+    }
+    
     var body: some View {
         VStack {
             Text("Scale Trainer").font(.title).padding()
@@ -165,30 +187,97 @@ struct ScalesView: View {
                     Text("     ").padding()
                 }
             }
-
-            PianoView(piano: piano, keyDisplayView: KeyDisplayView("This view was passed passed param"))
+            
+            PianoView(piano: piano,
+                      keyDisplayView: InsideKeyView(keyString: "", key: PianoKey(midi: 0)),
+                      action: ChooseFinger(piano: piano)
+                      )
             .padding()
             //.border(Color .red)
-            
+        
         }
         .onAppear() {
         }
     }
 }
 
-protocol KeyDisplayViewType: View {
-    init(_ keyString: String)
+struct ChooseFinger: Action {
+    @ObservedObject var piano:Piano
+    var imageSize = 25.0
+    @State var isPresented = false
+    init(piano: Piano) {
+        self.piano = piano
+    }
+    
+    var body: some View {
+        VStack {
+            Text("AAAA")
+        }
+        .actionSheet(isPresented: $isPresented) {
+            ActionSheet(
+                title: Text("Choose an Option"),
+                message: Text("Select an option from below"),
+                buttons: [
+                    .default(Text("Option 1")) {  },
+                    .default(Text("Option 2")) { },
+                    .destructive(Text("Delete")) {  },
+                    .cancel() {  }
+                ]
+            )
+            
+        }
+        .onChange(of: piano.lastKeyPressed, perform: {newValue in
+            print("====================== CHOOSE", newValue)
+            isPresented = true
+        })
+    }
 }
 
-struct KeyDisplayView: KeyDisplayViewType {
+struct InsideKeyView: InsideKeyViewType {
     let keyString: String
+    @ObservedObject var key:PianoKey
+    var imageSize = 25.0
+    @State var scale = Scale(name: "A\u{266D} Harmonic Minor")
 
-    init(_ keyString: String) {
+    init(keyString: String, key:PianoKey) {
         self.keyString = keyString
+        self.key = key
     }
 
     var body: some View {
-        Text(keyString)
-        // Additional styling or components
+        //Text("X\(key.midi)").foregroundColor(.red).bold()
+        Spacer()
+        let noteInScale = scale.isMidiInScale(midi: key.midi)
+        if key.wasPressed  {
+            VStack {
+                if noteInScale  {
+                    Image(systemName: "checkmark").resizable().frame(width: imageSize, height: imageSize).foregroundColor(.green).bold()
+                }
+                else {
+                    if true {
+                        Image(systemName: "questionmark").resizable().frame(width: imageSize, height: imageSize).foregroundColor(.red).bold()
+                    }
+                    else {
+                        Image(systemName: "scribble.variable").resizable().frame(width: imageSize, height: imageSize).foregroundColor(.red).bold()
+                    }
+                }
+                //else {
+                    //                    if showFingers() {
+                    //                        if fingersCorrect() {
+                    //                            Image(systemName: "checkmark").resizable().frame(width: imageSize, height: imageSize).foregroundColor(.green).bold()
+                    //                        }
+                    //                        else {
+                    //                            //Image("lefthand").resizable().frame(width: imageSize, height: imageSize).foregroundColor(.red).bold()
+                    //                            Image(systemName: "hand.raised.fill").resizable().frame(width: imageSize, height: imageSize).foregroundColor(.red).bold()
+                    //                        }
+                    //                    }
+                    //                    else {
+                    //                        Image(systemName: "checkmark").resizable().frame(width: imageSize, height: imageSize).foregroundColor(.green).bold()
+                    //                    }
+                //}
+            }
+            .padding(.bottom, 30)
+        }
     }
 }
+
