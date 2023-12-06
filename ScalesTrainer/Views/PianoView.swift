@@ -3,20 +3,14 @@ import SwiftUI
 import CommonLibrary
 import Combine
 
-protocol KeyDownAction: View {
-    init(key:PianoKey)
-}
+//struct KeyboardView<PianoUserView, InsideKeyView, ActionView>: View where PianoUserView: PianoUserProtocol, InsideKeyView: InsideKeyViewType, ActionView:Action {
+struct KeyboardView<PianoUser>: View where PianoUser: PianoUserProtocol {
 
-protocol Action: View {
-    init(piano:Piano)
-}
-
-struct KeyboardView<InsideKeyView, ActionView>: View where InsideKeyView: InsideKeyViewType, ActionView:Action {
-    
     @ObservedObject var piano:Piano
-    let keyDisplayView: InsideKeyView
-    let action:ActionView
-
+//    let keyDisplayView: InsideKeyView
+//    let action:ActionView?
+    let displayOptions:Int
+    
     @State var whiteKeyWidth = 1.0
     @State var blackKeyWidth = 0.0
     
@@ -29,13 +23,15 @@ struct KeyboardView<InsideKeyView, ActionView>: View where InsideKeyView: Inside
     //@State var questionMode:QuestionMode = .notStarted
     @State var anyKeyPressed:Bool = false
     @State var handViewHeight = 0.0
-    @State var showingSheet = false
-    @State var currentMidi = 0
+    //@State var showingSheet = false
+    //@State var currentMidi = 0
 
-    init(piano:Piano, keyDisplayView: InsideKeyView, action: ActionView) {
-        self.piano = piano
-        self.keyDisplayView = keyDisplayView
-        self.action = action
+    //init(piano:Piano, keyDisplayView: InsideKeyView, displayOptions:Int, action: ActionView?) {
+    init(piano:Piano, displayOptions:Int) {
+            self.piano = piano
+//        self.keyDisplayView = keyDisplayView
+//        self.action = action
+        self.displayOptions = displayOptions
         
         //self.keyDownAction = keyDownAction
         
@@ -84,8 +80,8 @@ struct KeyboardView<InsideKeyView, ActionView>: View where InsideKeyView: Inside
         }
     }
     
-    func showInfo(_ pianoKey:PianoKey)  {
-        var show = false
+//    func showInfo(_ pianoKey:PianoKey)  {
+//        var show = false
 //        if timedMode {
 //            if questionMode == .inAnswer {
 //                if pianoKey.inScale || pianoKey.wasPressed {
@@ -107,30 +103,28 @@ struct KeyboardView<InsideKeyView, ActionView>: View where InsideKeyView: Inside
 //                }
 //            }
 //        }
-        piano.setShowInfo(midi: pianoKey.midi, way: show)
-    }
+//        piano.setShowInfo(midi: pianoKey.midi, way: show)
+//    }
     
     var body: some View {
         VStack {
             buttonsView()
+            let user = PianoUser()
             ZStack(alignment: .topLeading) { // Aligning to the top and leading edge
 
                 ///White notes
                 HStack(spacing: 0) {
                     ForEach(0..<piano.keys.count, id: \.self) { index in
                         if piano.keys[index].color == .white {
-                            PianoKeyView(id:index, piano: piano,
-                                         pianoKey: piano.keys[index],
-                                         insideKeyView: InsideKeyView(keyString: "", key: piano.keys[index]))
+                            PianoKeyView<PianoUser>(id: index, piano: piano, pianoKey: piano.keys[index], user: user)
+                                         
                             .frame(width: whiteKeyWidth, height: whiteKeyHeight)
                             .gesture(
                                 DragGesture(minimumDistance: 0)
                                     .onChanged(
                                         { gesture in
-                                            currentMidi = piano.keys[index].midi
-                                            showingSheet.toggle()
                                             piano.processGesture(key:piano.keys[index], gesture: gesture)
-                                            showInfo(piano.keys[index])
+                                            //showInfo(piano.keys[index])
                                         }
                                     )
                                 )
@@ -143,18 +137,15 @@ struct KeyboardView<InsideKeyView, ActionView>: View where InsideKeyView: Inside
                 HStack(spacing: 0) {
                     ForEach(0..<piano.keys.count, id: \.self) { index in
                         if piano.keys[index].color == .black {
-                            PianoKeyView(id:index,
-                                         piano: piano,
-                                         pianoKey: piano.keys[index],
-                                         insideKeyView: InsideKeyView(keyString: "", key: piano.keys[index]))
+                            PianoKeyView<PianoUser>(id: index, piano: piano, pianoKey: piano.keys[index], user: user)
+
                             .frame(width: blackKeyWidth, height: whiteKeyHeight * 0.60)
                             .gesture(
                                 DragGesture(minimumDistance: 0)
                                     .onChanged(
                                         { gesture in
-                                            //processGesture(pianoKey: piano.keys[index], gesture: gesture) //, timedMode: timedMode)
                                             piano.processGesture(key:piano.keys[index], gesture: gesture)
-                                            showInfo(piano.keys[index])
+                                            //showInfo(piano.keys[index])
                                         }
                                     )
                                 )
@@ -168,7 +159,12 @@ struct KeyboardView<InsideKeyView, ActionView>: View where InsideKeyView: Inside
                     }
                 }
                 .padding(.leading, whiteKeyWidth - blackKeyWidth / 2.0)
-                action
+                HStack {
+                    Spacer()
+                    //ActionView(piano: piano)
+                    Spacer()
+                }
+                //ChooseFinger(piano: piano)
             }
         }
 
@@ -231,14 +227,17 @@ struct KeyboardView<InsideKeyView, ActionView>: View where InsideKeyView: Inside
         
 }
 
-struct PianoView<InsideKeyView, ActionView>: View where InsideKeyView: InsideKeyViewType, ActionView:Action {
+//struct PianoView<PianoUserView, InsideKeyView, ActionView>: View where PianoUserView: PianoUserProtocol, InsideKeyView: InsideKeyViewType, ActionView:Action {
+struct PianoView<PianoUserView>: View where PianoUserView: PianoUserProtocol {
     @ObservedObject var piano:Piano
-    let keyDisplayView: InsideKeyView
-    let action:ActionView
-    
+    //let keyDisplayView: InsideKeyView
+    //let displayOptions:Int
+    //let action:ActionView?
+
     var body: some View {
         VStack {
-            KeyboardView(piano:piano, keyDisplayView: keyDisplayView, action: action)
+            //KeyboardView(piano:piano, keyDisplayView: keyDisplayView, action: action)
+            KeyboardView<PianoUserView>(piano: piano, displayOptions: 0)
         }
     }
 }

@@ -3,44 +3,58 @@ import CommonLibrary
 import Combine
 import Foundation
 
-class Fingers {
-    let hand:Int
-    private let midis = [60, 62, 64, 65, 67, 69, 71, 72, 74, 76, 77, 79, 81, 83, 84, 86]
-    private var fingers:[Int:Int] = [:]
-
-    init(hand:Int) {
-        self.hand = hand
-        if hand == 1 {
-            fingers[68] = 3
-            fingers[70] = 2
-            fingers[72] = 1
-            fingers[73] = 4
-            fingers[75] = 3
-            fingers[77] = 2
-            fingers[72] = 1
-        }
-    }
-    
-    func getFinger(index:Int) -> Int? {
-        if index < 0 {
-            return nil
-        }
-        var midi = midis[index]
-        if index < 5  {
-            return nil
-        }
-        if index > 11 {
-            return nil
-        }
-        midi = midi - (hand == 0 ? 0:1)
-        var f:Int? = nil
-        if fingers.keys.contains(midi) {
-            f = fingers[midi]
-        }
-        print(index, "Midi", midi, "fin", f)
-        return f
-    }
+protocol PianoUserProtocol: View {
+    associatedtype KeyDisplayView: View
+    init()
+    func getKeyDisplayView(key:PianoKey) -> KeyDisplayView
 }
+
+protocol KeyDownAction: View {
+    init(key:PianoKey)
+}
+
+protocol Action: View {
+    init(piano:Piano)
+}
+
+//class Fingers {
+//    let hand:Int
+//    private let midis = [60, 62, 64, 65, 67, 69, 71, 72, 74, 76, 77, 79, 81, 83, 84, 86]
+//    private var fingers:[Int:Int] = [:]
+//
+//    init(hand:Int) {
+//        self.hand = hand
+//        if hand == 1 {
+//            fingers[68] = 3
+//            fingers[70] = 2
+//            fingers[72] = 1
+//            fingers[73] = 4
+//            fingers[75] = 3
+//            fingers[77] = 2
+//            fingers[72] = 1
+//        }
+//    }
+//
+//    func getFinger(index:Int) -> Int? {
+//        if index < 0 {
+//            return nil
+//        }
+//        var midi = midis[index]
+//        if index < 5  {
+//            return nil
+//        }
+//        if index > 11 {
+//            return nil
+//        }
+//        midi = midi - (hand == 0 ? 0:1)
+//        var f:Int? = nil
+//        if fingers.keys.contains(midi) {
+//            f = fingers[midi]
+//        }
+//        print(index, "Midi", midi, "fin", f)
+//        return f
+//    }
+//}
 
 enum KeyColor {
     case white
@@ -54,20 +68,9 @@ class PianoKey: ObservableObject, Equatable {
     
     @Published var wasLastKeyPressed = false
     @Published var wasPressed = false
-    //@Published var noteIsCorrect:Bool? = nil
-    //@Published var fingerIsCorrect:Bool? = nil
 
-    //@Published var correctFingerRH:Int = 0
-    //@Published var correctFingerLH:Int = 0
-    @Published var userFinger:Int? = nil
-    @Published var showInfo:Bool = false
-
-    //var inScale = false
     let midi:Int
     let color:KeyColor
-    
-    //var requiresFingerRH = false
-    //var requiresFingerLH = false
 
     init(midi:Int) {
         self.midi = midi
@@ -75,19 +78,11 @@ class PianoKey: ObservableObject, Equatable {
         color = [0,2,4,5,7,9,11].contains(offset) ? .white : .black
     }
     
-    func getUserFingerStr() -> String {
-        guard let userFinger = userFinger else {
-            return ""
-        }
-        return "\(userFinger + 1)"
-    }
-    
     func setLastKeyPressed(way:Bool) {
         DispatchQueue.main.async {
             self.wasLastKeyPressed = way
         }
     }
-    
 }
 
 class Piano: ObservableObject {
@@ -95,7 +90,8 @@ class Piano: ObservableObject {
     let av = AudioSamplerPlayer.getShared()
     var lastGestureTime:Date? = nil
     @Published var lastKeyPressed = 0
-
+    @Published var hilightedKey:PianoKey? = nil
+    
     init(startMidi:Int, number:Int) {
         keys = []
         for i in 0...number {
@@ -114,7 +110,29 @@ class Piano: ObservableObject {
         }
         //debug("Init")
     }
-        
+    
+    func setWasLastKeyPressed(pressedKey:PianoKey, notifyWatchers:Bool = true) {
+        DispatchQueue.main.async {
+            for key in self.keys {
+                if key.midi == pressedKey.midi {
+                    key.wasPressed = true
+                    key.setLastKeyPressed(way: true)
+                    self.hilightedKey = key
+//                    let timer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: false) { _ in
+//                        self.hilightedKey = nil
+                    //}
+                    //self.av.play(note: UInt8(key.midi))
+                    if notifyWatchers {
+                        self.lastKeyPressed = key.midi
+                    }
+                }
+                else {
+                    key.setLastKeyPressed(way: false)
+                }
+            }
+        }
+    }
+
     func wasAnyKeyPressed() -> Bool {
         for key in self.keys {
             if key.wasPressed {
@@ -138,7 +156,6 @@ class Piano: ObservableObject {
         if doTap {
             self.lastGestureTime = gesture.time
             setWasLastKeyPressed(pressedKey: key)
-            
         }
     }
 
@@ -147,26 +164,24 @@ class Piano: ObservableObject {
             for index in 0..<self.keys.count {
                 self.keys[index].wasPressed = false
                 self.keys[index].wasLastKeyPressed = false
-                //self.keys[index].noteIsCorrect = nil
-                //self.keys[index].fingerIsCorrect = nil
-                self.keys[index].userFinger = nil
-                self.keys[index].showInfo = false
+                //self.keys[index].userFinger = nil
+                //self.keys[index].showInfo = false
             }
         }
     }
     
-    func setShowInfo(midi:Int, way:Bool) {
-        //DispatchQueue.main.async {
-            for index in 0..<self.keys.count {
-                if self.keys[index].midi == midi {
-                    self.keys[index].showInfo = way
-                }
-                else {
-                    self.keys[index].showInfo = false
-                }
-            }
-        //}
-    }
+//    func setShowInfo(midi:Int, way:Bool) {
+//        //DispatchQueue.main.async {
+//            for index in 0..<self.keys.count {
+//                if self.keys[index].midi == midi {
+//                    self.keys[index].showInfo = way
+//                }
+//                else {
+//                    self.keys[index].showInfo = false
+//                }
+//            }
+//        //}
+//    }
 
 //    func gradeScale() {
 //        //DispatchQueue.main.async {
@@ -189,20 +204,8 @@ class Piano: ObservableObject {
         return PianoKey(midi: 0)
     }
 
-    func setWasLastKeyPressed(pressedKey:PianoKey) {
-        DispatchQueue.main.async {
-            for key in self.keys {
-                if key.midi == pressedKey.midi {
-                    key.wasPressed = true
-                    key.setLastKeyPressed(way: true)
-                    self.av.play(note: UInt8(key.midi))
-                    self.lastKeyPressed = key.midi
-                }
-                else {
-                    key.setLastKeyPressed(way: false)
-                }
-            }
-        }
+    func playNote(midi:Int) {
+        self.av.play(note: UInt8(midi))
     }
     
     func debug(_ ctx:String, midi:Int? = nil) {
@@ -234,7 +237,7 @@ class Piano: ObservableObject {
                     if count >= (octaves * 7) + 1 {
                         break
                     }
-                    self.setWasLastKeyPressed(pressedKey: key)
+                    self.setWasLastKeyPressed(pressedKey: key, notifyWatchers: false)
                 }
             }
         }

@@ -1,11 +1,33 @@
-//
-//  ScalesTrainerApp.swift
-//  ScalesTrainer
-//
-//  Created by David Murphy on 11/20/23.
-//
 
 import SwiftUI
+
+enum QuestionMode {
+    case notStarted
+    case inQuestion
+    case inAnswer
+}
+
+class ScalesAppModel : ObservableObject {
+    @Published var timedMode:Bool = false
+    @Published var questionMode = QuestionMode.notStarted
+    var scale = Scale(name: "A\u{266D} Harmonic Minor")
+
+    init() {
+    }
+    
+    static let shared:ScalesAppModel = ScalesAppModel()
+    
+    func setTimedMode(way:Bool) {
+        DispatchQueue.main.async {
+            self.timedMode = way
+        }
+    }
+    func setQuestionMode(way:QuestionMode) {
+        DispatchQueue.main.async {
+            self.questionMode = way
+        }
+    }
+}
 
 @main
 struct ScalesTrainerApp: App {
@@ -13,7 +35,6 @@ struct ScalesTrainerApp: App {
 
     var body: some Scene {
         WindowGroup {
-            //ContentView()
             ScalesView()
                 .environment(\.managedObjectContext, persistenceController.container.viewContext)
         }

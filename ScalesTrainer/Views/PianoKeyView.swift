@@ -3,22 +3,23 @@ import SwiftUI
 
 ///View that a key wil display
 protocol InsideKeyViewType: View {
-    init(keyString: String, key :PianoKey)
+    init(key :PianoKey)
 }
 
-struct PianoKeyView<InsideKeyView>: View where InsideKeyView: InsideKeyViewType {
+struct PianoKeyView<PianoUser>: View where PianoUser: PianoUserProtocol {
     let id:Int
     @ObservedObject var piano:Piano
     @ObservedObject var pianoKey:PianoKey
-    let insideKeyView: InsideKeyView
+    let user:PianoUser
 
+    @State var lastKeyPressedTime:Date? = nil
     var cornerRadius: CGFloat = 6
 
     var borderColor: Color = .black
     var borderWidth: CGFloat = 1
     
     func getColor(_ key:PianoKey) -> Color {
-        if key.wasLastKeyPressed {
+        if key == piano.hilightedKey {
             return Color(.systemTeal)
         }
         else {
@@ -150,12 +151,13 @@ struct PianoKeyView<InsideKeyView>: View where InsideKeyView: InsideKeyViewType 
             }
             VStack {
                 //noteDisplay(pianoKey: pianoKey)
-                insideKeyView
+                //insideKeyView
+                user.getKeyDisplayView(key:pianoKey)
             }
         }
-        .overlay(
-            pianoKey.showInfo ? explanationView(pianoKey: pianoKey) : nil
-        )
+//        .overlay(
+//            //pianoKey.showInfo ? explanationView(pianoKey: pianoKey) : nil
+//        )
         .overlay(
             VStack {
                 Spacer()
