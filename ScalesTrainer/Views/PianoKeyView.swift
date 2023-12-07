@@ -19,7 +19,7 @@ struct PianoKeyView<PianoUser>: View where PianoUser: PianoUserProtocol {
     var borderWidth: CGFloat = 1
     
     func getColor(_ key:PianoKey) -> Color {
-        if key == piano.hilightedKey {
+        if key == piano.getLastKeyPressed() {
             return Color(.systemTeal)
         }
         else {
@@ -150,20 +150,19 @@ struct PianoKeyView<PianoUser>: View where PianoUser: PianoUserProtocol {
                 )
             }
             VStack {
-                //noteDisplay(pianoKey: pianoKey)
-                //insideKeyView
                 user.getKeyDisplayView(key:pianoKey)
             }
         }
 //        .overlay(
 //            //pianoKey.showInfo ? explanationView(pianoKey: pianoKey) : nil
 //        )
-        .overlay(
-            VStack {
-                Spacer()
-                Text("\(pianoKey.midi)").bold().foregroundColor(pianoKey.color == .white ? Color.black : Color.white)
-            }
-        )
+//        .overlay(
+        ///Ruins alignemnt
+//            VStack {
+//                //Spacer()
+//                Text("\(pianoKey.midi)").bold().foregroundColor(pianoKey.color == .white ? Color.black : Color.white)
+//            }
+//        )
     }
 }
 

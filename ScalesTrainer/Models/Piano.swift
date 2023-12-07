@@ -5,17 +5,19 @@ import Foundation
 
 protocol PianoUserProtocol: View {
     associatedtype KeyDisplayView: View
+    associatedtype KeyActionView: View
     init()
     func getKeyDisplayView(key:PianoKey) -> KeyDisplayView
+    func getActionView(piano:Piano) -> KeyActionView
 }
 
-protocol KeyDownAction: View {
-    init(key:PianoKey)
-}
-
-protocol Action: View {
-    init(piano:Piano)
-}
+//protocol KeyDownAction: View {
+//    init(key:PianoKey)
+//}
+//
+//protocol Action: View {
+//    init(piano:Piano)
+//}
 
 //class Fingers {
 //    let hand:Int
@@ -89,26 +91,14 @@ class Piano: ObservableObject {
     @Published var keys:[PianoKey]
     let av = AudioSamplerPlayer.getShared()
     var lastGestureTime:Date? = nil
-    @Published var lastKeyPressed = 0
-    @Published var hilightedKey:PianoKey? = nil
+    @Published var lastMidiPressed = 0
     
     init(startMidi:Int, number:Int) {
         keys = []
         for i in 0...number {
             let key = PianoKey(midi: startMidi + i)
             keys.append(key)
-//            if rightHand {
-//                if (startMidi + i) >= 68 && (startMidi + i) <= 92 {
-//                    key.inScale = scaleOffsets.contains(startOffset)
-//                }
-//            }
-//            else {
-//                if (startMidi + i) >= 44 && (startMidi + i) <= 68 {
-//                    key.inScale = scaleOffsets.contains(startOffset)
-//                }
-//            }
         }
-        //debug("Init")
     }
     
     func setWasLastKeyPressed(pressedKey:PianoKey, notifyWatchers:Bool = true) {
@@ -117,18 +107,25 @@ class Piano: ObservableObject {
                 if key.midi == pressedKey.midi {
                     key.wasPressed = true
                     key.setLastKeyPressed(way: true)
-                    self.hilightedKey = key
 //                    let timer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: false) { _ in
 //                        self.hilightedKey = nil
                     //}
                     //self.av.play(note: UInt8(key.midi))
                     if notifyWatchers {
-                        self.lastKeyPressed = key.midi
+                        self.lastMidiPressed = key.midi
                     }
                 }
                 else {
                     key.setLastKeyPressed(way: false)
                 }
+            }
+        }
+    }
+    
+    func clearLastPressed() {
+        DispatchQueue.main.async {
+            for key in self.keys {
+                key.setLastKeyPressed(way: false)
             }
         }
     }
@@ -183,18 +180,7 @@ class Piano: ObservableObject {
 //        //}
 //    }
 
-//    func gradeScale() {
-//        //DispatchQueue.main.async {
-//            for key in self.keys {
-//                //print(key.midi, "grade pressed", key.wasPressed, "inscale", key.inScale)
-//                key.wasLastKeyPressed = false
-//            }
-//            for key in self.keys {
-//                //key.grade()
-//            }
-//        //}
-//    }
-    
+
     func getLastKeyPressed() -> PianoKey {
         for key in self.keys {
             if key.wasLastKeyPressed {

@@ -3,7 +3,8 @@ import Foundation
 class Scale {
     let name:String
     let scaleOffsets = [0, 2, 3, 5, 7, 8, 11]
-
+    var startMidi = 68
+    var noteCount = 24
     init(name:String) {
         self.name = name
     }
@@ -40,7 +41,13 @@ class Scale {
     
     func getRequiredFinger(midi:Int) -> Int? {
         let offset = (midi - 32) % 12
-        return offset == 0 ? 3 : nil
+        if offset == 0 {
+            return 2
+        }
+        if offset == 5 {
+            return 3
+        }
+        return nil
     }
     
     func getCorrectFingerStr(rightHand:Bool) -> String {

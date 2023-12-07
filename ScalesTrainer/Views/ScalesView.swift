@@ -13,143 +13,98 @@ struct SelectScaleView: View {
     }
 }
 
-struct KeyActionView: KeyDownAction {
-    //let keyString: String
-    @ObservedObject var key:PianoKey
-    var imageSize = 25.0
-    @State var scale = Scale(name: "A\u{266D} Harmonic Minor")
-    
-    init(key:PianoKey) {
-        //self.keyString = keyString
-        self.key = key
-    }
-    
-    var body: some View {
-        VStack {
-            Text("XV")
-        }
-    }
-}
-
-struct ChooseFinger: Action {
+struct PressedActionView: View {
+    @ObservedObject var model:ScalesAppModel
     @ObservedObject var piano:Piano
-    var imageSize = 25.0
-    @State var isPresented = false
-    var scale:Scale? = nil
-    var buttonTexts:[String] = []
+    var buttonTexts:[String]
     
-    init(piano: Piano) {
+    var imageSize = 25.0
+    @State var fingerChoiceToBePresented = false
+    
+    init(model:ScalesAppModel, piano: Piano, buttonTexts:[String]) {
+        self.model = model
         self.piano = piano
+        self.buttonTexts = buttonTexts
     }
     
-    func test() {
-        isPresented = false
-        piano.playNote(midi: piano.lastKeyPressed)
+    func saveFinger(_ finger:Int) {
+        fingerChoiceToBePresented = false
+        piano.playNote(midi: piano.lastMidiPressed)
+        model.setFingerForMidi(midi: piano.lastMidiPressed, finger: finger)
     }
 
     var body: some View {
         VStack {
-            Text("AAAA")
-            
         }
-        .actionSheet(isPresented: $isPresented) {
+        .actionSheet(isPresented: $fingerChoiceToBePresented) {
             ActionSheet(
                 title: Text("Choose an Option"),
                 message: Text("Select an option from below"),
                 buttons: [
-                    .default(Text("\(buttonTexts[0])")) {test() },
-                    .default(Text("\(buttonTexts[1])")) {test() },
-                    .default(Text("\(buttonTexts[2])")) {test() },
-                    .default(Text("\(buttonTexts[3])")) {test() },
-                    .default(Text("\(buttonTexts[4])")) {test() },
+                    .default(Text("\(buttonTexts[0])")) {saveFinger(0) },
+                    .default(Text("\(buttonTexts[1])")) {saveFinger(1) },
+                    .default(Text("\(buttonTexts[2])")) {saveFinger(2) },
+                    .default(Text("\(buttonTexts[3])")) {saveFinger(3) },
+                    .default(Text("\(buttonTexts[4])")) {saveFinger(4) },
                     //.destructive(Text("Delete")) {test()  },
-                    .cancel() {test()  }
+                    .cancel() {  }
                 ]
             )
         }
-        .onChange(of: piano.lastKeyPressed, perform: {newValue in
-            if let scale = scale {
-                let finger = scale.getRequiredFinger(midi: piano.lastKeyPressed)
-                if let finger = finger {
-                    isPresented = true
+        .onChange(of: piano.lastMidiPressed, perform: {newValue in
+            let keyPresses = model.keyPressesForMidi[piano.lastMidiPressed]
+            model.addKeyPressedForMidi(midi: piano.lastMidiPressed)
+            if keyPresses == 0 {
+                if model.checkFingerNumbers {
+                    if model.scale.getRequiredFinger(midi: piano.lastMidiPressed) != nil {
+                        fingerChoiceToBePresented = true
+                    }
                 }
-                else {
-                    piano.playNote(midi: piano.lastKeyPressed)
+                if !fingerChoiceToBePresented {
+                    piano.playNote(midi: piano.lastMidiPressed)
                 }
-                print("====================== CHOOSE", piano.lastKeyPressed, "InScale", scale.isMidiInScale(midi: piano.lastKeyPressed), newValue)
-            }
-            else {
-                piano.playNote(midi: piano.lastKeyPressed)
             }
         })
     }
 }
 
-//struct ScalesKeyDisplayView: InsideKeyViewType {
-//    let id = UUID()
-//    @ObservedObject var key:PianoKey
-//    var imageSize = 25.0
-//    @State var scale = Scale(name: "A\u{266D} Harmonic Minor")
-//
-//    init(key: PianoKey) {
-//        self.key = key
-//    }
-//
-//    var body: some View {
-//        Spacer()
-//        let noteInScale = scale.isMidiInScale(midi: key.midi)
-//
-//        if key.wasPressed  {
-//            VStack {
-////                    if noteInScale  {
-////                        Image(systemName: "checkmark").resizable().frame(width: imageSize, height: imageSize).foregroundColor(.green).bold()
-////                    }
-////                    else {
-////                        if true {
-////                            Image(systemName: "questionmark").resizable().frame(width: imageSize, height: imageSize).foregroundColor(.red).bold()
-////                        }
-////                        else {
-////                            Image(systemName: "scribble.variable").resizable().frame(width: imageSize, height: imageSize).foregroundColor(.red).bold()
-////                        }
-////                    }
-//                }
-//                //else {
-//                    //                    if showFingers() {
-//                    //                        if fingersCorrect() {
-//                    //                            Image(systemName: "checkmark").resizable().frame(width: imageSize, height: imageSize).foregroundColor(.green).bold()
-//                    //                        }
-//                    //                        else {
-//                    //                            //Image("lefthand").resizable().frame(width: imageSize, height: imageSize).foregroundColor(.red).bold()
-//                    //                            Image(systemName: "hand.raised.fill").resizable().frame(width: imageSize, height: imageSize).foregroundColor(.red).bold()
-//                    //                        }
-//                    //                    }
-//                    //                    else {
-//                    //                        Image(systemName: "checkmark").resizable().frame(width: imageSize, height: imageSize).foregroundColor(.green).bold()
-//                    //                    }
-//                //}
-//            //.padding(.bottom, 30)
-//        }
-//    }
-//}
+struct NoteExplanationView: View {
+    let key:PianoKey
+    var body: some View {
+        VStack {
+            Text("EX::\(key.midi)")
+        }
+    }
+}
 
 struct ScaleNoteView: View {
     @ObservedObject var model:ScalesAppModel
     @ObservedObject var key:PianoKey
+    @State private var isHovering = false
     let imageSize = 26.0
-
+    @State var showExplanation = false
+    
     enum ShowState {
         case noShow
         case inScale
         case outOfScale
         case missing
+        case wrongFinger
     }
     
     func showNote() -> ShowState {
-        //print("===========LOG", model.timedMode)
         let noteInScale = model.scale.isMidiInScale(midi: key.midi)
         if model.questionMode == .notStarted {
             if key.wasPressed  {
                 if noteInScale {
+                    if model.checkFingerNumbers {
+                        if let finger = model.fingerUsedByMidi[key.midi] {
+                            print("==========GOTFINGER", finger)
+                            if finger != model.scale.getRequiredFinger(midi: key.midi) {
+                                return ShowState.wrongFinger
+                            }
+                        }
+                    }
                     return ShowState.inScale
                 }
                 else {
@@ -166,6 +121,11 @@ struct ScaleNoteView: View {
         if model.questionMode == .inAnswer {
             if key.wasPressed  {
                 if noteInScale {
+                    if let finger = model.fingerUsedByMidi[key.midi] {
+                        if finger != model.scale.getRequiredFinger(midi: key.midi) {
+                            return ShowState.wrongFinger
+                        }
+                    }
                     return ShowState.inScale
                 }
                 else {
@@ -173,6 +133,9 @@ struct ScaleNoteView: View {
                 }
             }
             else {
+                if key.midi < model.scale.startMidi || key.midi > (model.scale.startMidi + model.scale.noteCount) {
+                    return ShowState.noShow
+                }
                 if noteInScale {
                     return .missing
                 }
@@ -183,19 +146,39 @@ struct ScaleNoteView: View {
     
     var body: some View {
         let show = showNote()
-        VStack {
-            if key.color == .white {
-                Text("").padding().padding().padding()
-            }
+        let padding = key.color == .white ? 80.0 : 0.0
+        ZStack {
+            ///Any changes here - make sure centered alignment of kb is not wrecked
             if show == .inScale  {
-                Image(systemName: "checkmark").resizable().frame(width: imageSize, height: imageSize).foregroundColor(.green).bold()
+                Image(systemName: "checkmark").resizable().frame(width: imageSize, height: imageSize)
+                    .foregroundColor(.green).bold().padding(.top, padding)
             }
             if show == .outOfScale {
-                Image(systemName: "questionmark").resizable().frame(width: imageSize, height: imageSize).foregroundColor(.red).bold()
+                Image("wrong1").resizable().frame(width: imageSize, height: imageSize)
+                    .foregroundColor(.red).bold().padding(.top, padding)
             }
             if show == .missing {
-                Image(systemName: "scribble.variable").resizable().frame(width: imageSize, height: imageSize).foregroundColor(.red).bold()
+                Image(systemName: "scribble.variable").resizable().frame(width: imageSize, height: imageSize)
+                    .foregroundColor(.red).bold().padding(.top, padding)
             }
+            if show == .wrongFinger {
+                Image(systemName: "hand.point.up.left.fill").resizable().frame(width: imageSize, height: imageSize)
+                    .foregroundColor(.red).bold().padding(.top, padding)
+            }
+            //if model.keyPressesForMidi[key.midi] > 1 {
+                if [ShowState.missing, ShowState.outOfScale, ShowState.wrongFinger].contains(show) {
+                    Button(action: {
+                        self.showExplanation = true
+                    }) {
+                        Image(systemName: "questionmark.circle").resizable().frame(width: imageSize * 1.5, height: imageSize * 1.5)
+                            .foregroundColor(.green).bold().padding(.top, 2 * padding)
+                    }
+                    .popover(isPresented: $showExplanation) {
+                        NoteExplanationView(key: key)
+                            .padding()
+                    }
+                }
+            //}
         }
     }
 }
@@ -209,8 +192,7 @@ struct ScalesView: PianoUserProtocol, View {
     @State var rightHand = true
     let checkSize = 30.0
     
-    @State var piano = Piano(startMidi: 65, number: 30)
-    @State var chooseFingerAction:ChooseFinger?
+    //@State var chooseFingerAction:ChooseFinger?
     
     init() {
         model = ScalesAppModel.shared
@@ -220,14 +202,31 @@ struct ScalesView: PianoUserProtocol, View {
         ScaleNoteView(model: model, key: key)
     }
     
+    func getFingerTexts() -> [String]{
+        var buttonTexts:[String] = []
+        buttonTexts.append("Thumb")
+        buttonTexts.append("2nd Finger")
+        buttonTexts.append("3rd Finger")
+        buttonTexts.append("4th Finger")
+        buttonTexts.append("5th Finger")
+        if !rightHand {
+            buttonTexts = buttonTexts.reversed()
+        }
+        return buttonTexts
+    }
+    
+    func getActionView(piano:Piano) -> some View {
+        PressedActionView(model: model, piano: piano, buttonTexts: getFingerTexts())
+    }
+
     func topLineView() -> some View {
         HStack {
             SelectScaleView().padding()
             
             Button(action: {
                 rightHand.toggle()
-                piano = rightHand ? Piano(startMidi: 65, number: 30) : Piano(startMidi: 36, number: 30)
-                setChooseFinger()
+                model.piano = rightHand ? Piano(startMidi: 65, number: 30) : Piano(startMidi: 36, number: model.totalKeys)
+                //setChooseFinger()
             }) {
                 HStack {
                     Image(systemName: rightHand ? "checkmark.square" : "square").resizable().frame(width: checkSize, height: checkSize)
@@ -256,17 +255,10 @@ struct ScalesView: PianoUserProtocol, View {
             Button(action: {
                 model.setTimedMode(way: !model.timedMode)
                 model.setQuestionMode(way: .inQuestion)
-//                if model.timedMode {
-//
-//                    model.setQuestionMode(way: .inQuestion)
-                    timeAllowed = 5.0
-                    if fingerMode {
-                        timeAllowed += 5
-                    }
-//                }
-//                else {
-//                    model.questionMode = .notStarted
-//                }
+                timeAllowed = 20.0
+                if fingerMode {
+                    timeAllowed += 10.0
+                }
             }) {
                 HStack {
                     Image(systemName: model.timedMode ? "checkmark.square" : "square").resizable().frame(width: checkSize, height: checkSize)
@@ -280,6 +272,9 @@ struct ScalesView: PianoUserProtocol, View {
             
             Button(action: {
                 fingerMode.toggle()
+                model.checkFingerNumbers = fingerMode
+                model.reset()
+                model.piano.reset()
             }) {
                 HStack {
                     Image(systemName: fingerMode ? "checkmark.square" : "square").resizable().frame(width: checkSize, height: checkSize)
@@ -291,11 +286,12 @@ struct ScalesView: PianoUserProtocol, View {
     }
     
     func timerStartNotification() {
-        piano.reset()
+        model.piano.reset()
         self.model.setQuestionMode(way: .inQuestion)
     }
 
     func timerEndNotification() {
+        model.piano.clearLastPressed()
         self.model.setQuestionMode(way: .inAnswer)
     }
     
@@ -316,7 +312,7 @@ struct ScalesView: PianoUserProtocol, View {
             }
             else {
                 Button(action: {
-                    piano.playScale(scale: model.scale, ascending: ascending)
+                    model.piano.playScale(scale: model.scale, ascending: ascending)
                 }) {
                     Text("Play Scale").font(.title)
                 }
@@ -325,21 +321,21 @@ struct ScalesView: PianoUserProtocol, View {
         }
     }
     
-    func setChooseFinger() {
-        chooseFingerAction = ChooseFinger(piano: piano)
-        chooseFingerAction?.scale = model.scale
-        var buttonTexts:[String] = []
-        buttonTexts.append("Thumb")
-        buttonTexts.append("2nd Finger")
-        buttonTexts.append("3rd Finger")
-        buttonTexts.append("4th Finger")
-        buttonTexts.append("5th Finger")
-        if !rightHand {
-            buttonTexts = buttonTexts.reversed()
-        }
-        //print("============= SET CHOOSE _FINGER ")
-        chooseFingerAction?.buttonTexts = buttonTexts
-    }
+//    func setChooseFinger() {
+//        chooseFingerAction = ChooseFinger(model: model, piano: piano)
+//        //chooseFingerAction?.model.scale = model.scale
+//        var buttonTexts:[String] = []
+//        buttonTexts.append("Thumb")
+//        buttonTexts.append("2nd Finger")
+//        buttonTexts.append("3rd Finger")
+//        buttonTexts.append("4th Finger")
+//        buttonTexts.append("5th Finger")
+//        if !rightHand {
+//            buttonTexts = buttonTexts.reversed()
+//        }
+//        //print("============= SET CHOOSE _FINGER ")
+//        chooseFingerAction?.buttonTexts = buttonTexts
+//    }
     
     var body: some View {
         VStack {
@@ -361,13 +357,13 @@ struct ScalesView: PianoUserProtocol, View {
                 }
             }
             
-            PianoView<ScalesView>(piano: piano).padding()
+            PianoView<ScalesView>(piano: model.piano).padding()
             
             //.border(Color .red)
         
         }
         .onAppear() {
-            setChooseFinger()
+            //setChooseFinger()
 //            pianoView = PianoView(piano: piano,
 //                      keyDisplayView: InsideKeyView(key: PianoKey(midi: 0), timedMode1: timedMode),
 //                      action: chooseFingerAction)
