@@ -7,7 +7,7 @@ struct NoteExplanationView: View {
     let key:PianoKey
     var body: some View {
         VStack {
-            let status = model.getNoteStatus(key: key)
+            let status = model.getNoteShowStatus(key: key)
             if status == .outOfScale {
                 Text("This note you played is not the scale of \(model.getScaleName())")
             }
@@ -111,19 +111,18 @@ struct ScaleNoteView: View {
         ///For each key state show the right button and image
         ///The explanation popover must be attached to t each button to hace the popover appear next to the key
         ///On any layout changes here - make sure centered alignment of kb is not wrecked
-        let show = model.getNoteStatus(key: key)
+        let show = model.getNoteShowStatus(key: key)
         let padding = 0.0
         
         ///Must to ZStack to ensure all note view status images are horizontally aligned irrespective of presence of finger data
         ZStack {
-            if model.questionMode != .inQuestion {
-                //let l = log()
+
+            if model.practiceMode {
                 VStack {
-                    //Text("\(key.midi)").padding().padding()
+                    Text("\(key.midi)").foregroundColor(key.color == .white ? Color.black : Color.white)
                     Text("\(getFinger())").padding().font(.title).foregroundColor(key.color == .white ? Color.black : Color.white)
                 }
             }
-            //.border(.red)
             VStack {
                 if show == .inScale  {
                     Image(systemName: "checkmark").resizable().frame(width: imageSize, height: imageSize)
@@ -244,7 +243,6 @@ struct ScalesView: PianoUserProtocol, View {
                 model.checkFingerNumbers = fingerMode
                 model.setQuestionMode(way: .notStarted)
                 model.reset()
-                model.piano.reset()
             }) {
                 HStack {
                     let imageSize = imageSize * 0.8
@@ -267,10 +265,9 @@ struct ScalesView: PianoUserProtocol, View {
             .padding()
             
             Button(action: {
-                model.setTimedMode(way: !model.timedMode)
+                model.setPracticeMode(way: !model.practiceMode)
                 model.setQuestionMode(way: .notStarted)
                 model.reset()
-                model.piano.reset()
                 timeAllowed = 20.0
                 if fingerMode {
                     timeAllowed += 10.0
@@ -284,14 +281,14 @@ struct ScalesView: PianoUserProtocol, View {
                             .frame(width: imageSize, height: imageSize)
                             
                     }
-                    .opacity(model.timedMode ? 0.0 : 1.0)
+                    .opacity(model.practiceMode ? 1.0 : 0.0)
                     VStack {
                         Text("Timed").font(.title)
                         Image("clock").resizable()
                             .foregroundColor(.purple)
                             .frame(width: imageSize, height: imageSize)
                     }
-                    .opacity(model.timedMode ? 1.0 : 0.0)
+                    .opacity(model.practiceMode ? 0.0 : 1.0)
                 }
             }
             .padding()
@@ -301,7 +298,6 @@ struct ScalesView: PianoUserProtocol, View {
                 model.checkFingerNumbers = fingerMode
                 model.setQuestionMode(way: .notStarted)
                 model.reset()
-                model.piano.reset()
             }) {
                 VStack {
                     if !fingerMode {
@@ -324,7 +320,6 @@ struct ScalesView: PianoUserProtocol, View {
     
     func timerStartNotification() {
         model.setQuestionMode(way: .inQuestion)
-        model.piano.reset()
         model.reset()
     }
 
@@ -336,7 +331,7 @@ struct ScalesView: PianoUserProtocol, View {
     func commandsView(backgroundColor:Color) -> some View {
         HStack {
             HStack {
-                if model.timedMode {
+                if !model.practiceMode {
                     HStack {
                         CountdownTimerView(size: 50, timerColor: Color.green, timeLimit: $timeAllowed,
                                            startNotification: timerStartNotification,
@@ -350,16 +345,36 @@ struct ScalesView: PianoUserProtocol, View {
                 }
                 else {
                     Button(action: {
+                        if model.questionMode == .inQuestion {
+                            model.metronome.stopTicking()
+                            model.setQuestionMode(way: .notStarted)
+                        }
+                        else {
+                            model.reset()
+                            model.metronome.startTicking(timeSignature: TimeSignature(top: 4, bottom: 4))
+                            model.setQuestionMode(way: .inQuestion)
+                        }
+                    }) {
+                        if model.questionMode == .inQuestion {
+                            Text("Stop").font(.title)
+                        }
+                        else {
+                            Text("Start").font(.title)
+                        }
+                    }
+                    .padding()
+
+                    Button(action: {
+                        model.reset()
+                    }) {
+                        Text("Reset").font(.title)
+                    }
+                    .padding()
+                    
+                    Button(action: {
                         model.piano.playScale(scale: model.scale, ascending: ascending)
                     }) {
                         Text("Play Scale").font(.title)
-                    }
-                    .padding()
-                    Button(action: {
-                        model.reset()
-                        model.piano.reset()
-                    }) {
-                        Text("Reset").font(.title)
                     }
                     .padding()
                 }
@@ -373,20 +388,20 @@ struct ScalesView: PianoUserProtocol, View {
             
             MetronomeView(timeSignature: TimeSignature(top: 4, bottom: 4), helpText: "Set the tempo for your scale", 
                           frameHeight: 80, backgroundColor: backgroundColor)
-                .background(RoundedRectangle(cornerRadius: 12).fill(backgroundColor))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 12)
-                        .stroke(Color.blue, lineWidth: 4)
-                )
-                .padding()
+            .frame(width: UIScreen.main.bounds.width * 0.50)
+            .background(RoundedRectangle(cornerRadius: 12).fill(backgroundColor))
+            .overlay(
+                RoundedRectangle(cornerRadius: 12)
+                    .stroke(Color.blue, lineWidth: 4)
+            )
+            .padding()
         }
     }
     
     func headingView(backgroundColor:Color) -> some View {
-        VStack {
+        HStack {
             HStack {
-                Text("Scale Trainer - ").font(.title).padding()
-                Text(model.getScaleName()).font(.title).padding()
+                Text("Scale Trainer-\(model.getScaleName())").font(.title).padding()
             }
             .font(.title)
             .bold()
@@ -398,6 +413,11 @@ struct ScalesView: PianoUserProtocol, View {
                     .stroke(Color.blue, lineWidth: 4)
             )
             .padding()
+            Button(action: {
+                self.showSelectScale = true
+            }) {
+                Text("Select Scale").font(.title)
+            }
         }
     }
     
@@ -407,12 +427,6 @@ struct ScalesView: PianoUserProtocol, View {
         VStack {
             headingView(backgroundColor: backgroundColor)
             
-            Button(action: {
-                self.showSelectScale = true
-            }) {
-                Text("Select Scale").font(.title)
-            }
-
             topLineView()
                 .padding()
                 .background(RoundedRectangle(cornerRadius: 12).fill(backgroundColor))

@@ -15,6 +15,7 @@ class ScaleType : ObservableObject, Equatable, Hashable, Identifiable {
     public let idx = UUID()
     let type:ScaleShapeType
     let ascendingScaleOffsets:[Int]
+    ///required since descedning is different for melodic minor
     let descendingScaleOffsets:[Int]
 
     static func == (lhs: ScaleType, rhs: ScaleType) -> Bool {
@@ -76,26 +77,34 @@ class Scale {
     let rightHand:Bool
     
     var startMidi:Int = 0
-    var startFinger = 2
-    var fingerBreakIndex = 5
+    var startFinger = 0
+    var fingerBreakIndex = 0
     
     var noteCount = 24
+    
     var fingers:[Int?] = [Int?](repeating: nil, count: 12)
     
     init(key:Key, scaleType:ScaleType, rightHand:Bool) {
         self.key = key
         self.scaleType = scaleType
         self.rightHand = rightHand
-        //if key. == "A\u{266D}" {
-        //startMidi = rightHand ? 68 : 44
         startMidi = key.firstScaleNote()
-        //}
+        if rightHand {
+            while startMidi < 60 {
+                startMidi += 12
+            }
+            if isWhiteKey(midi: startMidi) {
+                startFinger = 0
+                fingerBreakIndex = 3
+            }
+        }
         setFingers()
     }
     
-//    func getName() -> String {
-//        return key.getKeyName(withType: false) + " " + scaleType.name
-//    }
+    private func isWhiteKey(midi:Int) -> Bool {
+        let offset = (midi - 24) % 12
+        return [0,2,4,5,7,9,11].contains(offset)
+    }
     
     ///Set fingers of the scale starting at the first finger
     ///All the fingers can bet set as the next finger except once in the scale
@@ -104,11 +113,11 @@ class Scale {
         var cnt = 0
         for offset in scaleType.ascendingScaleOffsets {
             fingers[offset] = next
-            if cnt == fingerBreakIndex-1 {
+            if cnt == fingerBreakIndex - 1 {
                 next = 0
             }
             else {
-                if next == 3 {
+                if next == 4 {
                     next = 0
                 }
                 else {
@@ -120,23 +129,21 @@ class Scale {
     }
     
     func getFinger(midi:Int) -> Int? {
-        //print("======", midi)
         if midi < self.startMidi {
             return nil
         }
         if midi > self.startMidi + 24 {
             return nil
         }
-        var scaleOffset = (midi % 12) - 8
+        var scaleOffset = (midi % 12) 
         if scaleOffset < 0 {
             scaleOffset += 12
         }
-        //print("  ======", midi, fingers[scaleOffset])
         return fingers[scaleOffset]
     }
     
     func isMidiInScale(midi:Int) ->Bool {
-        let offset = (midi - 32) % 12
+        let offset = (midi - key.lowestNote) % 12
         let inScale = scaleType.ascendingScaleOffsets.contains(offset)
         return inScale
     }

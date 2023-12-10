@@ -16,8 +16,8 @@ class ScalesAppModel : ObservableObject {
         case wrongFinger
     }
 
-    @Published var timedMode:Bool = false
     @Published var questionMode = QuestionMode.notStarted
+    @Published var practiceMode = true
     @Published var piano:Piano
     @Published var fingerUsedByMidi:[Int?]
     @Published var keyPressesForMidi:[Int]    
@@ -37,12 +37,12 @@ class ScalesAppModel : ObservableObject {
     static let shared:ScalesAppModel = ScalesAppModel()
     
     init() {
-        self.piano = Piano(startMidi: 65, number: totalKeys)
+        self.piano = Piano(startMidi: 60, number: totalKeys) ///Most diagrams start at middle C
         fingerUsedByMidi = Array(repeating: nil, count: 65 + totalKeys + 1)
         keyPressesForMidi = Array(repeating: 0, count: 65 + totalKeys + 1)
         let initKey = Key(type: .major, keySig: KeySignature(keyName: "C", type: .major))
-        let initScaleType = ScaleType(type: .major, ascendingScaleOffsets: [])
         key = initKey
+        let initScaleType = ScaleType.getAllTypes()[0]
         scaleType = initScaleType
         scale = Scale(key:initKey, scaleType: initScaleType, rightHand: true)
     }
@@ -61,6 +61,7 @@ class ScalesAppModel : ObservableObject {
     
     func reset() {
         DispatchQueue.main.async {
+            self.piano.reset()
             for i in 0..<self.fingerUsedByMidi.count {
                 self.fingerUsedByMidi[i] = nil
                 self.keyPressesForMidi[i] = 0
@@ -68,12 +69,12 @@ class ScalesAppModel : ObservableObject {
         }
     }
     
-    func setTimedMode(way:Bool) {
+    func setPracticeMode(way:Bool) {
         DispatchQueue.main.async {
-            self.timedMode = way
+            self.practiceMode = way
         }
     }
-    
+
     func setQuestionMode(way:QuestionMode) {
         DispatchQueue.main.async {
             self.questionMode = way
@@ -107,8 +108,15 @@ class ScalesAppModel : ObservableObject {
         }
     }
     
-    func getNoteStatus(key:PianoKey) -> NoteState {
+    func getNoteShowStatus(key:PianoKey) -> NoteState {
         let noteInScale = scale.isMidiInScale(midi: key.midi)
+        if practiceMode {
+            if key.wasPressed {
+                return noteInScale ? NoteState.inScale : NoteState.outOfScale
+            }
+            return NoteState.noShow
+        }
+
         if questionMode == .notStarted {
             if key.wasPressed  {
                 if noteInScale {
