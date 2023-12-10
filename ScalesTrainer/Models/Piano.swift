@@ -11,14 +11,6 @@ protocol PianoUserProtocol: View {
     func getActionView(piano:Piano) -> KeyActionView
 }
 
-//protocol KeyDownAction: View {
-//    init(key:PianoKey)
-//}
-//
-//protocol Action: View {
-//    init(piano:Piano)
-//}
-
 //class Fingers {
 //    let hand:Int
 //    private let midis = [60, 62, 64, 65, 67, 69, 71, 72, 74, 76, 77, 79, 81, 83, 84, 86]
@@ -89,7 +81,7 @@ class PianoKey: ObservableObject, Equatable {
 
 class Piano: ObservableObject {
     @Published var keys:[PianoKey]
-    let av = AudioSamplerPlayer.getShared()
+    let midiSampler = AudioSamplerPlayer.getShared().getSampler()
     var lastGestureTime:Date? = nil
     @Published var lastMidiPressed = 0
     
@@ -167,20 +159,6 @@ class Piano: ObservableObject {
         }
     }
     
-//    func setShowInfo(midi:Int, way:Bool) {
-//        //DispatchQueue.main.async {
-//            for index in 0..<self.keys.count {
-//                if self.keys[index].midi == midi {
-//                    self.keys[index].showInfo = way
-//                }
-//                else {
-//                    self.keys[index].showInfo = false
-//                }
-//            }
-//        //}
-//    }
-
-
     func getLastKeyPressed() -> PianoKey {
         for key in self.keys {
             if key.wasLastKeyPressed {
@@ -191,7 +169,8 @@ class Piano: ObservableObject {
     }
 
     func playNote(midi:Int) {
-        self.av.play(note: UInt8(midi))
+        //self.midiSampler.play(note: UInt8(midi))
+        midiSampler.startNote(UInt8(midi), withVelocity:64, onChannel:UInt8(0))
     }
     
     func debug(_ ctx:String, midi:Int? = nil) {
@@ -216,14 +195,21 @@ class Piano: ObservableObject {
             for i in 0..<self.keys.count {
                 let index = ascending ? i : self.keys.count - i - 1
                 let key = self.keys[index]
+                if key.midi < scale.startMidi {
+                    continue
+                }
+                if key.midi > scale.startMidi + scale.noteCount {
+                    break
+                }
                 if scale.isMidiInScale(midi: key.midi) {
-                    self.av.play(note: UInt8(key.midi))
+                    self.playNote(midi: key.midi)
+                    self.setWasLastKeyPressed(pressedKey: key, notifyWatchers: false)
                     Thread.sleep(forTimeInterval: 0.5)
                     count += 1
                     if count >= (octaves * 7) + 1 {
                         break
                     }
-                    self.setWasLastKeyPressed(pressedKey: key, notifyWatchers: false)
+                    //break
                 }
             }
         }

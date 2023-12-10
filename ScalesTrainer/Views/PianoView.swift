@@ -29,8 +29,7 @@ struct KeyboardView<PianoUser>: View where PianoUser: PianoUserProtocol {
     }
     
     func getName(ascending:Bool) -> String {
-        let name = "piano" //rightHand ? "Right Hand" : "Left Hand"
-        //name = name + (ascending ? " Ascending" : " Descending")
+        let name = "piano"
         return name
     }
 
@@ -51,20 +50,11 @@ struct KeyboardView<PianoUser>: View where PianoUser: PianoUserProtocol {
                         if piano.keys[index].color == .white {
                             PianoKeyView<PianoUser>(id: index, piano: piano, pianoKey: piano.keys[index], user: user)
                                 .frame(width: whiteKeyWidth, height: whiteKeyHeight)
-//                                .popover(isPresented: $explanationShowing) {
-//                                    VStack {
-//                                        Text("Explantin....")
-//                                        Text("Explantin....")
-//                                        Text("Explantin....")
-//                                        Text("Explantin....")
-//                                    }
-//                                }
                                 .gesture(
                                     DragGesture(minimumDistance: 0)
                                         .onChanged(
                                             { gesture in
                                                 piano.processGesture(key:piano.keys[index], gesture: gesture)
-                                                //showInfo(piano.keys[index])
                                                 if piano.keys[index].midi == 69 {
                                                     explanationShowing = true
                                                 }
@@ -81,13 +71,12 @@ struct KeyboardView<PianoUser>: View where PianoUser: PianoUserProtocol {
                     ForEach(0..<piano.keys.count, id: \.self) { index in
                         if piano.keys[index].color == .black {
                             PianoKeyView<PianoUser>(id: index, piano: piano, pianoKey: piano.keys[index], user: user)
-                            .frame(width: blackKeyWidth, height: whiteKeyHeight * 0.60)
+                            .frame(width: blackKeyWidth, height: whiteKeyHeight * 1.0)
                             .gesture(
                                 DragGesture(minimumDistance: 0)
                                     .onChanged(
                                         { gesture in
                                             piano.processGesture(key:piano.keys[index], gesture: gesture)
-                                            //showInfo(piano.keys[index])
                                         }
                                     )
                                 )
@@ -114,7 +103,7 @@ struct KeyboardView<PianoUser>: View where PianoUser: PianoUserProtocol {
             let screenWidth = screenSize.width
             ///Some keys (black) are narrower
             self.whiteKeyWidth = (screenWidth * 1.6) / Double(piano.keys.count)
-            self.whiteKeyHeight = screenSize.height / 5.0
+            self.whiteKeyHeight = screenSize.height / 3.5
             self.handViewHeight = self.whiteKeyHeight * 0.20
             blackKeyWidth = whiteKeyWidth * 0.7
             Settings.shared.useUpstrokeTaps = false

@@ -1,44 +1,132 @@
 import Foundation
+import CommonLibrary
 
-class Scale {
-    let name:String
-    let scaleOffsets = [0, 2, 3, 5, 7, 8, 11]
-    var startMidi = 68
-    var noteCount = 24
-    init(name:String) {
-        self.name = name
+enum ScaleShapeType {
+    case major
+    case naturalMinor
+    case harmonicMinor
+    case melodicMinor
+}
+
+class ScaleType : ObservableObject, Identifiable, Equatable {    
+    let type:ScaleShapeType
+    let ascendingScaleOffsets:[Int]
+    let descendingScaleOffsets:[Int]
+
+    
+    static func == (lhs: ScaleType, rhs: ScaleType) -> Bool {
+        return lhs.id == rhs.id
     }
     
+    init(type:ScaleShapeType, ascendingScaleOffsets:[Int], descendingScaleOffsets:([Int]?) = nil) {
+        self.type = type
+        self.ascendingScaleOffsets = ascendingScaleOffsets
+        if let descendingScaleOffsets = descendingScaleOffsets {
+            self.descendingScaleOffsets = ascendingScaleOffsets
+        }
+        else {
+            self.descendingScaleOffsets = ascendingScaleOffsets
+        }
+    }
+    
+    func getName() -> String {
+        var name = ""
+        switch type {
+        case .major:
+            name = "Major"
+        case .naturalMinor:
+            name = "Natural Minor"
+        case .harmonicMinor:
+            name = "Harmonic Minor"
+        case .melodicMinor:
+            name = "Melodic Minor"
+        }
+        return name
+    }
+    
+    static public func getAllTypes() -> [ScaleType] {
+        var result:[ScaleType] = []
+        result.append(ScaleType(type: .major, ascendingScaleOffsets: [0,2,4,5,7,9,11]))
+        result.append(ScaleType(type: .harmonicMinor, ascendingScaleOffsets: [0,2,3,5,7,8,11]))
+        result.append(ScaleType(type: .melodicMinor, ascendingScaleOffsets: [0,2,3,5,7,8,11], descendingScaleOffsets:[0,2,3,5,7,8,10]))
+        result.append(ScaleType(type: .naturalMinor, ascendingScaleOffsets: [0,2,3,5,7,8,10]))
+        return result
+    }
+
+}
+
+class Scale {
+    let key:Key
+    let scaleType:ScaleType
+    let rightHand:Bool
+    
+    var startMidi:Int = 0
+    var startFinger = 2
+    var fingerBreakIndex = 5
+    
+    var noteCount = 24
+    var fingers:[Int?] = [Int?](repeating: nil, count: 12)
+    
+    init(key:Key, scaleType:ScaleType, rightHand:Bool) {
+        self.key = key
+        self.scaleType = scaleType
+        self.rightHand = rightHand
+        //if key. == "A\u{266D}" {
+        //startMidi = rightHand ? 68 : 44
+        startMidi = key.firstScaleNote()
+        //}
+        setFingers()
+    }
+    
+//    func getName() -> String {
+//        return key.getKeyName(withType: false) + " " + scaleType.name
+//    }
+    
+    ///Set fingers of the scale starting at the first finger
+    ///All the fingers can bet set as the next finger except once in the scale
     func setFingers() {
-//        for octave in 0..<2 {
-//            ///LH
-//            setFinger(midi: 44 + (octave * 12), rightHand: <#Bool#>, finger: 3)
-//            setFinger(midi: 46 + (octave * 12), finger: 2)
-//            setFinger(midi: 47 + (octave * 12), finger: 1)
-//            setFinger(midi: 49 + (octave * 12), finger: 4)
-//            setFinger(midi: 51 + (octave * 12), finger: 3)
-//            setFinger(midi: 52 + (octave * 12), finger: 2)
-//            setFinger(midi: 55 + (octave * 12), finger: 1)
-//            setFinger(midi: 56 + (octave * 12), finger: 3)
-//
-//            ///RH
-//            setFinger(midi: 68 + (octave * 12), finger: 3, true)
-//            setFinger(midi: 70 + (octave * 12), finger: 4)
-//            setFinger(midi: 71 + (octave * 12), finger: 1, true)
-//            setFinger(midi: 73 + (octave * 12), finger: 2)
-//            setFinger(midi: 75 + (octave * 12), finger: 3)
-//            setFinger(midi: 76 + (octave * 12), finger: 1, true)
-//            setFinger(midi: 79 + (octave * 12), finger: 2)
-//            setFinger(midi: 80 + (octave * 12), finger: 3)
-//        }
+        var next = startFinger
+        var cnt = 0
+        for offset in scaleType.ascendingScaleOffsets {
+            fingers[offset] = next
+            if cnt == fingerBreakIndex-1 {
+                next = 0
+            }
+            else {
+                if next == 3 {
+                    next = 0
+                }
+                else {
+                    next = next + 1
+                }
+            }
+            cnt += 1
+        }
+    }
+    
+    func getFinger(midi:Int) -> Int? {
+        //print("======", midi)
+        if midi < self.startMidi {
+            return nil
+        }
+        if midi > self.startMidi + 24 {
+            return nil
+        }
+        var scaleOffset = (midi % 12) - 8
+        if scaleOffset < 0 {
+            scaleOffset += 12
+        }
+        //print("  ======", midi, fingers[scaleOffset])
+        return fingers[scaleOffset]
     }
     
     func isMidiInScale(midi:Int) ->Bool {
         let offset = (midi - 32) % 12
-        let inScale = scaleOffsets.contains(offset)
+        let inScale = scaleType.ascendingScaleOffsets.contains(offset)
         return inScale
     }
     
+    ///Return finger number for a midi in the scale that the user must specify
     func getRequiredFinger(midi:Int) -> Int? {
         let offset = (midi - 32) % 12
         if offset == 0 {
@@ -50,56 +138,43 @@ class Scale {
         return nil
     }
     
-    func getCorrectFingerStr(rightHand:Bool) -> String {
-//        if rightHand {
-//            return "\(correctFingerRH + 1)"
-//        }
-//        else {
-//            return "\(correctFingerLH + 1)"
-//        }
-        return ""
-    }
-    
-    func grade(rightHand:Bool) {
-//        if self.wasPressed {
-//            self.noteIsCorrect = (self.inScale)
-//        }
-//        else {
-//            if self.inScale {
-//                self.noteIsCorrect = false
-//            }
-//        }
-//        if let noteIsCorrect = noteIsCorrect {
-//            if rightHand {
-//                if self.requiresFingerRH {
-//                    self.fingerIsCorrect = self.userFinger == self.correctFingerRH
-//                }
-//            }
-//            else {
-//                if self.requiresFingerLH {
-//                    self.fingerIsCorrect = self.userFinger == self.correctFingerLH
-//                }
-//            }
-//        }
-    }
-    
-    func setFinger(midi:Int, rightHand:Bool, finger:Int, _ required:Bool? = nil) {
-        ///Fingers are zero based !!!
-//        for key in keys {
-//            if key.midi == midi {
-//                if rightHand {
-//                    key.correctFingerRH = finger - 1
-//                    if let required = required {
-//                        key.requiresFingerRH = required
-//                    }
-//                }
-//                else {
-//                    key.correctFingerLH = finger - 1
-//                    if let required = required {
-//                        key.requiresFingerLH = required
-//                    }
-//                }
-//            }
-//        }
+    func getFingerName(finger: Int) -> String {
+        var name = ""
+        switch finger {
+        case 0:
+            name = "Thumb"
+        case 1:
+            name = "Second Finger"
+        case 2:
+            name = "Third Finger"
+        case 3:
+            name = "Fourth Finger"
+        case 4:
+            name = "Fifth Finger"
+        default:
+            name = ""
+        }
+        return name
     }
 }
+
+//class TrainerScaleTypes {
+//    var scaleTypes:[ScaleType] = []
+//    init() {
+//        scaleTypes.append(ScaleType(type: .major, scaleOffsets: [0, 2, 4, 5, 7, 9, 11]))
+//        scaleTypes.append(ScaleType(type: .harmonicMinor, scaleOffsets: [0, 2, 3, 5, 7, 8, 11]))
+//
+////        let key = Key(type: Key.KeyType.minor, keySig: KeySignature(type: .flat, count: 7))
+////        let shape = ScaleShape(type: .harmonicMinor, scaleOffsets: [0, 2, 3, 5, 7, 8, 11])
+////        scales.append(Scale(key: key, scaleShape: shape, rightHand: true))
+////        let shape = ScaleShape(type: .harmonicMinor, scaleOffsets: [0, 2, 3, 5, 7, 8, 11])
+//    }
+//}
+
+//class TrainerKeys {
+//    var keys:[Key] = []
+//    init() {
+//        keys.append(Key(type: Key.KeyType.major, keySig: KeySignature(type: .sharp, count: 0)))
+//        keys.append(Key(type: Key.KeyType.minor, keySig: KeySignature(type: .flat, count: 7)))
+//    }
+//}
