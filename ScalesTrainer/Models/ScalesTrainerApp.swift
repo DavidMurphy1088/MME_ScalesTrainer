@@ -26,8 +26,13 @@ class ScalesAppModel : ObservableObject {
     @Published var scaleType:ScaleType
     @Published var scale:Scale
     
+    var metronome = Metronome.getMetronomeWithSettings(initialTempo: 60, allowChangeTempo: true, ctx: "")
     var checkFingerNumbers = false
     let totalKeys = 31
+    
+    let scaleTypes:[ScaleType] = ScaleType.getAllTypes()
+    let sharpKeys = Key.getAllKeys(type: .sharp)
+    let flatKeys = Key.getAllKeys(type: .flat)
 
     static let shared:ScalesAppModel = ScalesAppModel()
     

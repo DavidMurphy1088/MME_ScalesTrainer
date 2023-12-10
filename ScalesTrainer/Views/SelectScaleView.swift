@@ -4,10 +4,9 @@ import Combine
 import Foundation
 
 struct SelectKeyView: View {
+    @ObservedObject var model:ScalesAppModel
     @Binding var selectedKey:Key
     @State var hiliteKey:Key? = nil
-    let sharpKeys = Key.getAllKeys(type: .sharp)
-    let flatKeys = Key.getAllKeys(type: .flat)
 
     func getKeyName() -> String {
         return selectedKey.getKeyName(withType: false)
@@ -18,29 +17,39 @@ struct SelectKeyView: View {
             Text("\(getKeyName())").font(.title).padding()
             HStack {
                 List {
-                    ForEach(sharpKeys, id: \.id) { key in
-                        Text(key.getKeyName(withType: false))
-                            .foregroundColor(.black)
-                            .background(key == hiliteKey ? Color.teal : Color.clear)
-                            .onTapGesture {
-                                DispatchQueue.main.async {
-                                    self.selectedKey = key
-                                    self.hiliteKey = key
-                                }
+                    ForEach(model.sharpKeys, id: \.id) { key in
+                        HStack {
+                            Text(key.getKeyName(withType: false))
+                                .foregroundColor(.black)
+                            Spacer()
+                        }
+                        .frame(minWidth: 0, maxWidth: .infinity, alignment: .leading) // Make HStack fill the row
+                        .contentShape(Rectangle())
+                        .onTapGesture {
+                            DispatchQueue.main.async {
+                                self.selectedKey = key
+                                self.hiliteKey = key
                             }
+                        }
+                        .background(key == hiliteKey ? Color.teal : Color.clear)
                     }
                 }
                 List {
-                    ForEach(flatKeys, id: \.id) { key in
-                        Text(key.getKeyName(withType: false))
-                            .foregroundColor(.black)
-                            .background(key == hiliteKey ? Color.teal : Color.clear)
-                            .onTapGesture {
-                                DispatchQueue.main.async {
-                                    self.selectedKey = key
-                                    self.hiliteKey = key
-                                }
+                    ForEach(model.flatKeys, id: \.id) { key in
+                        HStack {
+                            Text(key.getKeyName(withType: false))
+                                .foregroundColor(.black)
+                            Spacer()
+                        }
+                        .frame(minWidth: 0, maxWidth: .infinity, alignment: .leading) // Make HStack fill the row
+                        .contentShape(Rectangle())
+                        .onTapGesture {
+                            DispatchQueue.main.async {
+                                self.selectedKey = key
+                                self.hiliteKey = key
                             }
+                        }
+                        .background(key == hiliteKey ? Color.teal : Color.clear)
                     }
                 }
             }
@@ -52,24 +61,37 @@ struct SelectKeyView: View {
 }
 
 struct SelectScaleTypeView: View {
+    @ObservedObject var model:ScalesAppModel
     @Binding var selectedScaleType:ScaleType
     @State var hiliteType:ScaleType? = nil
-
-    var scaleTypes:[ScaleType] = ScaleType.getAllTypes()
-
+    
+    func getHilight(_ sType:ScaleType) -> Bool {
+        if let hil = self.hiliteType {
+            return hil.idx == sType.idx
+        }
+        else {
+            return false
+        }
+    }
+    
     var body: some View {
         Text("Scale \(selectedScaleType.getName())").font(.title).padding()
         List {
-            ForEach(scaleTypes, id: \.id) { scaleType in
-                Text(scaleType.getName())
-                    .foregroundColor(.black)
-                    .background(scaleType == hiliteType ? Color.teal : Color.clear)
-                    .onTapGesture {
-                        DispatchQueue.main.async {
-                            self.selectedScaleType = scaleType
-                            self.hiliteType = scaleType
-                        }
-                    }
+            ForEach(model.scaleTypes, id: \.id) { scaleType in
+                HStack {
+                    Text(scaleType.getName())
+                        .foregroundColor(.black)
+                    Spacer()
+                }
+                .background(getHilight(scaleType) ? Color.teal : Color.clear)
+                .frame(minWidth: 0, maxWidth: .infinity, alignment: .leading) // Make HStack fill the row
+                .contentShape(Rectangle())
+                .onTapGesture {
+                    DispatchQueue.main.async {
+                        self.selectedScaleType = scaleType
+                        self.hiliteType = scaleType
+                     }
+                }
             }
         }
         .onAppear() {
@@ -93,10 +115,10 @@ struct SelectScaleView: View {
     var body: some View {
         VStack {
             VStack {
-                SelectKeyView(selectedKey: $model.key)
+                SelectKeyView(model: model, selectedKey: $model.key)
             }
             VStack {
-                SelectScaleTypeView(selectedScaleType: $model.scaleType)
+                SelectScaleTypeView(model: model, selectedScaleType: $model.scaleType)
             }
             HStack {
                 Button(action: {

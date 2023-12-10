@@ -117,7 +117,6 @@
 			children = (
 				7B66E8402B13E62900299C95 /* Views */,
 				7B66E83D2B13E5B300299C95 /* Models */,
-				7B3FC9692B0B607C004A7987 /* ScalesTrainerApp.swift */,
 				7B3FC9722B0B607E004A7987 /* Persistence.swift */,
 				7B3FC9772B0B607E004A7987 /* Info.plist */,
 				7B3FC9742B0B607E004A7987 /* ScalesTrainer.xcdatamodeld */,
@@ -165,6 +164,7 @@
 			children = (
 				7B66E83E2B13E5CE00299C95 /* Piano.swift */,
 				7BE2C5302B1DCE2A003B34E2 /* Scale.swift */,
+				7B3FC9692B0B607C004A7987 /* ScalesTrainerApp.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -172,9 +172,9 @@
 		7B66E8402B13E62900299C95 /* Views */ = {
 			isa = PBXGroup;
 			children = (
-				7B3FC96B2B0B607C004A7987 /* ScalesView.swift */,
 				7B66E8412B13E72700299C95 /* PianoKeyView.swift */,
 				7BE2C52E2B1DB442003B34E2 /* PianoView.swift */,
+				7B3FC96B2B0B607C004A7987 /* ScalesView.swift */,
 				7B2219302B23B09000F200EF /* SelectScaleView.swift */,
 			);
 			path = Views;

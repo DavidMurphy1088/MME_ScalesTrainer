@@ -95,20 +95,24 @@ class Piano: ObservableObject {
     
     func setWasLastKeyPressed(pressedKey:PianoKey, notifyWatchers:Bool = true) {
         DispatchQueue.main.async {
+            pressedKey.setLastKeyPressed(way: true)
+            pressedKey.wasPressed = true
+            if notifyWatchers {
+                self.lastMidiPressed = pressedKey.midi
+            }
+
             for key in self.keys {
                 if key.midi == pressedKey.midi {
-                    key.wasPressed = true
-                    key.setLastKeyPressed(way: true)
 //                    let timer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: false) { _ in
 //                        self.hilightedKey = nil
                     //}
                     //self.av.play(note: UInt8(key.midi))
-                    if notifyWatchers {
-                        self.lastMidiPressed = key.midi
-                    }
                 }
                 else {
-                    key.setLastKeyPressed(way: false)
+                    if key.wasLastKeyPressed {
+                        key.setLastKeyPressed(way: false)
+                        break
+                    }
                 }
             }
         }
