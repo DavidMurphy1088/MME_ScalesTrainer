@@ -5,10 +5,10 @@ import Foundation
 
 protocol PianoUserProtocol: View {
     associatedtype KeyDisplayView: View
-    associatedtype KeyActionView: View
+    associatedtype KeyActionHandler: View
     init()
     func getKeyDisplayView(key:PianoKey) -> KeyDisplayView
-    func getActionView(piano:Piano) -> KeyActionView
+    func getActionHandler(piano:Piano) -> KeyActionHandler
 }
 
 //class Fingers {
@@ -62,6 +62,7 @@ class PianoKey: ObservableObject, Equatable {
     
     @Published var wasLastKeyPressed = false
     @Published var wasPressed = false
+    @Published var changed = false
 
     let midi:Int
     let color:KeyColor
@@ -77,21 +78,34 @@ class PianoKey: ObservableObject, Equatable {
             self.wasLastKeyPressed = way
         }
     }
+    
+    ///Caller forces the key's view to update
+    func redisplay() {
+        self.changed.toggle()
+    }
 }
 
 class Piano: ObservableObject {
+    var startMidi = 0
     @Published var keys:[PianoKey]
     let midiSampler = AudioSamplerPlayer.getShared().getSampler()
     var lastGestureTime:Date? = nil
-    @Published var lastMidiPressed = 0
+    @Published var lastMidiPressed:Int?
     
     init(startMidi:Int, number:Int) {
+        self.startMidi = startMidi
         keys = []
         for i in 0...number {
             let key = PianoKey(midi: startMidi + i)
             keys.append(key)
         }
     }
+    
+//    func test() {
+//        DispatchQueue.main.async {
+//            self.keys[0].wasPressed = true
+//        }
+//    }
     
     func setWasLastKeyPressed(pressedKey:PianoKey, notifyWatchers:Bool = true) {
         DispatchQueue.main.async {
@@ -152,7 +166,7 @@ class Piano: ObservableObject {
         }
     }
 
-    func reset() {
+    func setAllKeysUnPressed() {
         DispatchQueue.main.async {
             for index in 0..<self.keys.count {
                 self.keys[index].wasPressed = false

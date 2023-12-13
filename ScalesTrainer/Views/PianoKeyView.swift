@@ -86,14 +86,6 @@ struct PianoKeyView<PianoUser>: View where PianoUser: PianoUserProtocol {
         
     var body: some View {
         VStack {
-//            let x = pianoKey.color == .white ? "W" : "B"
-//            VStack {
-//                Text("\(x)")
-//                //Text("M")
-//            }
-//            .padding()
-//            .border(Color .red)
-
             ZStack {
                 PianoKeyOulineView(piano: piano, pianoKey: pianoKey)
                     //.border(Color .green)

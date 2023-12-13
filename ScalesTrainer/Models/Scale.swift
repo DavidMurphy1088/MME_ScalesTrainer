@@ -58,7 +58,7 @@ class ScaleType : ObservableObject, Equatable, Hashable, Identifiable {
         var result:[ScaleType] = []
         result.append(ScaleType(type: .major, ascendingScaleOffsets: [0,2,4,5,7,9,11]))
         result.append(ScaleType(type: .harmonicMinor, ascendingScaleOffsets: [0,2,3,5,7,8,11]))
-        result.append(ScaleType(type: .melodicMinor, ascendingScaleOffsets: [0,2,3,5,7,8,11], descendingScaleOffsets:[0,2,3,5,7,8,10]))
+        result.append(ScaleType(type: .melodicMinor, ascendingScaleOffsets: [0,2,3,5,7,9,11], descendingScaleOffsets:[0,2,3,5,7,8,10]))
         //result.append(ScaleType(type: .naturalMinor, ascendingScaleOffsets: [0,2,3,5,7,8,10]))
         result.append(ScaleType(type: .chromatic, ascendingScaleOffsets: [0,1,2,3,4,5,6,7,8,9,10,11]))
         result.append(ScaleType(type: .majorArpeggio, ascendingScaleOffsets: [0,4,7]))
@@ -88,7 +88,12 @@ class Scale {
         self.key = key
         self.scaleType = scaleType
         self.rightHand = rightHand
-        startMidi = key.firstScaleNote()
+        startMidi = key.centralMidi
+        if rightHand {
+            if startMidi < 60 {
+                startMidi += 12
+            }
+        }
         if rightHand {
             while startMidi < 60 {
                 startMidi += 12
@@ -135,7 +140,7 @@ class Scale {
         if midi > self.startMidi + 24 {
             return nil
         }
-        var scaleOffset = (midi % 12) 
+        var scaleOffset = (midi - self.startMidi) % 12
         if scaleOffset < 0 {
             scaleOffset += 12
         }
@@ -143,7 +148,7 @@ class Scale {
     }
     
     func isMidiInScale(midi:Int) ->Bool {
-        let offset = (midi - key.lowestNote) % 12
+        let offset = (midi - key.centralMidi) % 12
         let inScale = scaleType.ascendingScaleOffsets.contains(offset)
         return inScale
     }

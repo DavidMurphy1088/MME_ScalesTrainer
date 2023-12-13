@@ -7,12 +7,18 @@ struct NoteExplanationView: View {
     let key:PianoKey
     var body: some View {
         VStack {
-            let status = model.getNoteShowStatus(key: key)
+            let status = model.getNoteShowStatus(pianoKey: key)
             if status == .outOfScale {
                 Text("This note you played is not the scale of \(model.getScaleName())")
             }
             if status == .missing {
                 Text("You didn't play this note but it is required in the scale of \(model.getScaleName())")
+            }
+            if status == .tooEarly {
+                Text("This note was played too early")
+            }
+            if status == .tooLate {
+                Text("This note was played too late")
             }
             if status == .wrongFinger {
                 if let requiredFinger = model.scale.getRequiredFinger(midi: key.midi) {
@@ -32,7 +38,9 @@ struct NoteExplanationView: View {
     }
 }
 
-struct AfterPressedView: View {
+///Handling of key state after a piano key is tapped
+///Prompt for finger number if required
+struct AfterPressedHandler: View {
     @ObservedObject var model:ScalesAppModel
     @ObservedObject var piano:Piano
     var buttonTexts:[String]
@@ -48,8 +56,10 @@ struct AfterPressedView: View {
     
     func saveFinger(_ finger:Int) {
         fingerChoiceToBePresented = false
-        piano.playNote(midi: piano.lastMidiPressed)
-        model.setUsersFingerForMidi(midi: piano.lastMidiPressed, finger: finger)
+        if let lastMidiPressed = piano.lastMidiPressed {
+            piano.playNote(midi: lastMidiPressed)
+            model.setUsersFingerForMidi(midi: lastMidiPressed, finger: finger)
+        }
     }
 
     var body: some View {
@@ -71,20 +81,23 @@ struct AfterPressedView: View {
             )
         }
         .onChange(of: piano.lastMidiPressed, perform: {newValue in
-            if model.questionMode != .inAnswer {
-                let keyPresses = model.keyPressesForMidi[piano.lastMidiPressed]
-                model.addKeyPressedForMidi(midi: piano.lastMidiPressed)
-                if keyPresses == 0 {
-                    if model.checkFingerNumbers {
-                        if model.scale.getRequiredFinger(midi: piano.lastMidiPressed) != nil {
-                            if model.getUsersFingerForMidi(midi: piano.lastMidiPressed) == nil {
-                                fingerChoiceToBePresented = true
-                            }
-                        }
-                    }
-                }
+            if let lastMidiPressed = piano.lastMidiPressed {
+                model.saveTap(midi: lastMidiPressed)
+            }
+            if model.questionState != .inAnswer {
+//                if keyPresses == 0 {
+//                    if model.fingerMode {
+//                        if model.scale.getRequiredFinger(midi: piano.lastMidiPressed) != nil {
+//                            if model.getUsersFingerForMidi(midi: piano.lastMidiPressed) == nil {
+//                                fingerChoiceToBePresented = true
+//                            }
+//                        }
+//                    }
+//                }
                 if !fingerChoiceToBePresented {
-                    piano.playNote(midi: piano.lastMidiPressed)
+                    if let lastMidiPressed = piano.lastMidiPressed {
+                        piano.playNote(midi: lastMidiPressed)
+                    }
                 }
             }
         })
@@ -95,8 +108,9 @@ struct ScaleNoteView: View {
     @ObservedObject var model:ScalesAppModel
     @ObservedObject var key:PianoKey
     @State private var isHovering = false
-    let imageSize = 30.0
+    let imageSize = 40.0
     @State var showExplanation = false
+    @State var isNextFlashing = false
 
     func getFinger() -> String {
         var fingerStr = ""
@@ -107,32 +121,87 @@ struct ScaleNoteView: View {
         return fingerStr
     }
     
+    func getShowStatus(midi:Int) -> NoteDisplayState  {
+        let state = model.getNoteShowStatus(pianoKey: key)
+//        if [60,62,64].contains(midi) {
+//            print("=========== getShowStatus For_midi", midi, "State", state)
+//            model.piano?.debug("getShowStatus", midi: midi)
+//        }
+        return state
+    }
+    
     var body: some View {
         ///For each key state show the right button and image
         ///The explanation popover must be attached to t each button to hace the popover appear next to the key
         ///On any layout changes here - make sure centered alignment of kb is not wrecked
-        let show = model.getNoteShowStatus(key: key)
+        let show = getShowStatus(midi: key.midi)
         let padding = 0.0
         
-        ///Must to ZStack to ensure all note view status images are horizontally aligned irrespective of presence of finger data
+        ///Must use ZStack to ensure all note view status images are horizontally aligned irrespective of presence of finger data
         ZStack {
-
-            if model.practiceMode {
+            //let keyPress = model.statesForMidi[key.midi]
+            if model.fingerMode {
                 VStack {
-                    Text("\(key.midi)").foregroundColor(key.color == .white ? Color.black : Color.white)
+                    if false {
+                        Text("\(key.midi)").foregroundColor(key.color == .white ? Color.black : Color.white)
+                    }
+                    else {
+                        Text("").padding().font(.title)
+                        Text("").padding().font(.title)
+                    }
                     Text("\(getFinger())").padding().font(.title).foregroundColor(key.color == .white ? Color.black : Color.white)
                 }
             }
+
             VStack {
-                if show == .inScale  {
-                    Image(systemName: "checkmark").resizable().frame(width: imageSize, height: imageSize)
-                        .foregroundColor(.green).bold().padding(.top, padding)
+                if show == .correct {
+                    Image(systemName: "checkmark").resizable().frame(width: imageSize * 0.8, height: imageSize)
+                                                .foregroundColor(.green).bold().padding(.top, padding)
                 }
+                if show == .tooEarly {
+                    let size = imageSize * 1.0
+                    Button(action: {
+                        self.showExplanation = true
+                    }) {
+                        Image(systemName: "hare.fill").resizable().frame(width: size, height: size)
+                            .foregroundColor(.yellow)
+                    }
+                    .popover(isPresented: $showExplanation) {
+                        NoteExplanationView(model: model, key: key)
+                            .padding()
+                    }
+                }
+                
+                if show == .nextToPlay {
+                    let size = imageSize * 1.0
+                    Image("finger_point").resizable().frame(width: size, height: size)
+                    .foregroundColor(.green).bold().padding(.top, padding)
+                    .opacity(isNextFlashing ? 1.0 : 0.0)
+                    .onAppear() {
+                        withAnimation(Animation.easeInOut(duration: 0.8).repeatForever(autoreverses: true)) {
+                            isNextFlashing.toggle()
+                        }
+                    }
+                }
+                if show == .tooLate {
+                    let size = imageSize * 1.0
+                    Button(action: {
+                        self.showExplanation = true
+                    }) {
+                        Image(systemName: "tortoise.fill").resizable().frame(width: size, height: size)
+                            .foregroundColor(.yellow)
+                    }
+                    .popover(isPresented: $showExplanation) {
+                        NoteExplanationView(model: model, key: key)
+                            .padding()
+                    }
+                }
+
                 if show == .outOfScale {
                     Button(action: {
                         self.showExplanation = true
                     }) {
-                        Image("wrong").resizable().frame(width: imageSize * 1.1, height: imageSize * 1.1)
+                        Image("wrong").resizable().frame(width: imageSize, height: imageSize)
                             .foregroundColor(.red).bold().padding(.top, padding)
                     }
                     .popover(isPresented: $showExplanation) {
@@ -144,7 +213,7 @@ struct ScaleNoteView: View {
                     Button(action: {
                         self.showExplanation = true
                     }) {
-                        Image(systemName: "eyedropper").resizable().frame(width: imageSize, height: imageSize)
+                        Image("missing").resizable().frame(width: imageSize, height: imageSize)
                             .foregroundColor(.red).bold().padding(.top, padding)
                     }
                     .popover(isPresented: $showExplanation) {
@@ -152,6 +221,7 @@ struct ScaleNoteView: View {
                             .padding()
                     }
                 }
+                
                 if show == .wrongFinger {
                     Button(action: {
                         self.showExplanation = true
@@ -170,14 +240,16 @@ struct ScaleNoteView: View {
     }
 }
 
-struct ScalesView: PianoUserProtocol, View {
+struct ScalesView: PianoUserProtocol, View {    
     @ObservedObject var model:ScalesAppModel
     @State var showSelectScale:Bool
-    @State var timeAllowed:Double = 0.0
     @State var userMessage = ""
     @State var fingerMode = false
+    @State var seeNextFingerMode = true
     @State var ascending = true
     @State var rightHand = true
+    @State private var isExamFlashing = false
+    
     let checkSize = 30.0
     let imageSize = 80.0
 
@@ -209,15 +281,15 @@ struct ScalesView: PianoUserProtocol, View {
         return buttonTexts
     }
     
-    func getActionView(piano:Piano) -> some View {
-        AfterPressedView(model: model, piano: piano, buttonTexts: getFingerTexts())
+    func getActionHandler(piano:Piano) -> some View {
+        AfterPressedHandler(model: model, piano: piano, buttonTexts: getFingerTexts())
     }
 
     func topLineView() -> some View {
         HStack {            
             Button(action: {
                 rightHand.toggle()
-                model.piano = rightHand ? Piano(startMidi: 65, number: 30) : Piano(startMidi: 36, number: model.totalKeys)
+                model.piano = rightHand ? Piano(startMidi: 65, number: 30) : Piano(startMidi: 36, number: model.pianoTotalKeys)
             }) {
                 HStack {
                     if rightHand {
@@ -240,9 +312,9 @@ struct ScalesView: PianoUserProtocol, View {
 
             Button(action: {
                 ascending.toggle()
-                model.checkFingerNumbers = fingerMode
-                model.setQuestionMode(way: .notStarted)
-                model.reset()
+                model.fingerMode = fingerMode
+                model.setQuestionState(state: .notStarted)
+                model.setAllKeysUnPressed()
             }) {
                 HStack {
                     let imageSize = imageSize * 0.8
@@ -265,43 +337,37 @@ struct ScalesView: PianoUserProtocol, View {
             .padding()
             
             Button(action: {
-                model.setPracticeMode(way: !model.practiceMode)
-                model.setQuestionMode(way: .notStarted)
-                model.reset()
-                timeAllowed = 20.0
-                if fingerMode {
-                    timeAllowed += 10.0
-                }
+                seeNextFingerMode.toggle()
+                model.seeNextFingerMode = seeNextFingerMode
+                model.setQuestionState(state: .notStarted)
+                model.setAllKeysUnPressed()
             }) {
-                ZStack {
-                    VStack {
-                        Text("Practice").font(.title)
-                        Image("relax").resizable()
+                VStack {
+                    if seeNextFingerMode {
+                        Text("Next Finger Showing").font(.title)
+                        Image(systemName: "eye").resizable()
                             .foregroundColor(.green)
-                            .frame(width: imageSize, height: imageSize)
-                            
+                            .frame(width: imageSize, height: imageSize * 0.7)
                     }
-                    .opacity(model.practiceMode ? 1.0 : 0.0)
-                    VStack {
-                        Text("Timed").font(.title)
-                        Image("clock").resizable()
+                    else {
+                        Text("Next Finger Hidden").font(.title)
+                        Image(systemName: "eye.slash").resizable()
                             .foregroundColor(.purple)
-                            .frame(width: imageSize, height: imageSize)
+                            .frame(width: imageSize, height: imageSize * 0.7)
                     }
-                    .opacity(model.practiceMode ? 0.0 : 1.0)
                 }
             }
             .padding()
 
             Button(action: {
                 fingerMode.toggle()
-                model.checkFingerNumbers = fingerMode
-                model.setQuestionMode(way: .notStarted)
-                model.reset()
+                model.fingerMode = fingerMode
+                model.setQuestionState(state: .notStarted)
+                model.setAllKeysUnPressed()
             }) {
                 VStack {
                     if !fingerMode {
-                        Text("No Fingers").font(.title)
+                        Text("Check Fingers").font(.title)
                         Image("not_require_finger").resizable()
                             .foregroundColor(.green)
                             .frame(width: imageSize, height: imageSize)
@@ -315,68 +381,96 @@ struct ScalesView: PianoUserProtocol, View {
                 }
             }
             .padding()
-        }
-    }
-    
-    func timerStartNotification() {
-        model.setQuestionMode(way: .inQuestion)
-        model.reset()
-    }
 
-    func timerEndNotification() {
-        model.piano.clearLastPressed()
-        model.setQuestionMode(way: .inAnswer)
+            Button(action: {
+                if model.appMode == AppMode.practiceMode {
+                    model.setAppMode(mode: .examMode)
+                    model.setQuestionState(state: .notStarted)
+                }
+                else {
+                    model.setAppMode(mode: .practiceMode)
+                    model.setQuestionState(state: .notStarted)
+                }
+            }) {
+                ZStack {
+                    if model.appMode == .practiceMode {
+                        VStack {
+                            Text("Practice Mode").font(.title)
+                            Image("relax").resizable()
+                                .foregroundColor(.green)
+                                .frame(width: imageSize, height: imageSize)
+                            
+                        }
+                    }
+                    else {
+                        //.opacity(model.practiceMode ? 1.0 : 0.0)
+                        VStack {
+                            Text("Exam Mode").font(.title)
+                            Image("exam_icon").resizable()
+                                .foregroundColor(.purple)
+                                .frame(width: imageSize, height: imageSize)
+                        }
+                        //.opacity(model.practiceMode ? 0.0 : 1.0)
+                    }
+                }
+            }
+            .padding()
+        }
     }
     
     func commandsView(backgroundColor:Color) -> some View {
         HStack {
             HStack {
-                if !model.practiceMode {
-                    HStack {
-                        CountdownTimerView(size: 50, timerColor: Color.green, timeLimit: $timeAllowed,
-                                           startNotification: timerStartNotification,
-                                           endNotification: timerEndNotification)
-                        .padding()
-                        Text("Time allowed is \(Int(self.timeAllowed)) seconds ").font(.title)
-                        Slider(value: $timeAllowed, in: 5...40, step: 1.0)
-                            .frame(width: UIScreen.main.bounds.width / 4.0)
-                            .padding()
-                    }
-                }
-                else {
+                if model.appMode == AppMode.practiceMode {
                     Button(action: {
-                        if model.questionMode == .inQuestion {
+                        if model.questionState == .inQuestion {
                             model.metronome.stopTicking()
-                            model.setQuestionMode(way: .notStarted)
+                            model.debugStates("end of scale practice")
+                            model.setQuestionState(state: .notStarted)
                         }
                         else {
-                            model.reset()
+                            model.setAllKeysUnPressed()
                             model.metronome.startTicking(timeSignature: TimeSignature(top: 4, bottom: 4))
-                            model.setQuestionMode(way: .inQuestion)
+                            model.setQuestionState(state: .inQuestion)
                         }
                     }) {
-                        if model.questionMode == .inQuestion {
+                        if model.questionState == .inQuestion {
                             Text("Stop").font(.title)
                         }
                         else {
-                            Text("Start").font(.title)
+                            Text("Start Metronome Scale").font(.title)
                         }
                     }
                     .padding()
 
-                    Button(action: {
-                        model.reset()
-                    }) {
-                        Text("Reset").font(.title)
+                    if model.lastPressedKey != nil {
+                        Button(action: {
+                            model.setAllKeysUnPressed()
+                        }) {
+                            Text("Clear").font(.title)
+                        }
+                        .padding()
                     }
-                    .padding()
                     
-                    Button(action: {
-                        model.piano.playScale(scale: model.scale, ascending: ascending)
-                    }) {
-                        Text("Play Scale").font(.title)
-                    }
-                    .padding()
+                    //                    if let scale = model.scale {
+                    //                        Button(action: {
+                    //                            //scale(scale: model.scale, ascending: ascending)
+                    //                        }) {
+                    //                            Text("Play Scale").font(.title)
+                    //                        }
+                    //                        .padding()
+                    //                    }
+                }
+                else {
+                    Image("exam_icon").resizable()
+                        .foregroundColor(.purple)
+                        .opacity(isExamFlashing ? 1.0 : 0.0)
+                        .frame(width: imageSize, height: imageSize)
+                        .onAppear() {
+                            withAnimation(Animation.easeInOut(duration: 0.8).repeatForever(autoreverses: true)) {
+                                isExamFlashing.toggle()
+                            }
+                        }
                 }
             }
             .background(RoundedRectangle(cornerRadius: 12).fill(backgroundColor))
@@ -437,7 +531,9 @@ struct ScalesView: PianoUserProtocol, View {
             
             commandsView(backgroundColor: backgroundColor)
             
-            PianoView<ScalesView>(piano: model.piano).padding()
+            if let piano = model.piano {
+                PianoView<ScalesView>(piano: piano).padding()
+            }
             
             //.border(Color .red)
         

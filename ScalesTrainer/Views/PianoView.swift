@@ -91,7 +91,7 @@ struct KeyboardView<PianoUser>: View where PianoUser: PianoUserProtocol {
                 HStack {
                     ///Spacers throw off alignment of keyboard in center of screen
                     //Spacer()
-                    user.getActionView(piano: piano)
+                    user.getActionHandler(piano: piano)
                     //Spacer()
                 }
             }
