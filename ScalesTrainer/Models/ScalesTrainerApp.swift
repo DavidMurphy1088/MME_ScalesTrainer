@@ -265,24 +265,22 @@ class ScalesAppModel : ObservableObject {
         let noteInScale = scale.isMidiInScale(midi: pianoKey.midi)
 
         ///Check for missing notes
-        //if questionState == .inQuestion {
-            if let lastPressedKey = self.lastPressedKey {
-                if noteInScale {
-                    if stateForMidi.pressedSequenceNumber == nil {
-                        ///Determine if a following scale note was pressed (but this note was not)
-                        for i in 1..<24 {
-                            if scale.isMidiInScale(midi: stateForMidi.midi + i) {
-                                if pianoKey.midi + i < self.statesForMidi.count {
-                                    if self.statesForMidi[pianoKey.midi + i]?.pressedSequenceNumber != nil {
-                                        return .missing
-                                    }
+        if let lastPressedKey = self.lastPressedKey {
+            if noteInScale {
+                if stateForMidi.pressedSequenceNumber == nil {
+                    ///Determine if a following scale note was pressed (but this note was not)
+                    for i in 1..<24 {
+                        if scale.isMidiInScale(midi: stateForMidi.midi + i) {
+                            if pianoKey.midi + i < self.statesForMidi.count {
+                                if self.statesForMidi[pianoKey.midi + i]?.pressedSequenceNumber != nil {
+                                    return .missing
                                 }
                             }
                         }
                     }
                 }
             }
-        //}
+        }
 
         ///Check note values from metronome
         if stateForMidi.pressedSequenceNumber != nil {
