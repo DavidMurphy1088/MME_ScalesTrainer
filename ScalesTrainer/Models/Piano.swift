@@ -91,6 +91,7 @@ class Piano: ObservableObject {
     let midiSampler = AudioSamplerPlayer.getShared().getSampler()
     var lastGestureTime:Date? = nil
     @Published var lastMidiPressed:Int?
+    private var stopScale = false
     
     init(startMidi:Int, number:Int) {
         self.startMidi = startMidi
@@ -187,7 +188,6 @@ class Piano: ObservableObject {
     }
 
     func playNote(midi:Int) {
-        //self.midiSampler.play(note: UInt8(midi))
         midiSampler.startNote(UInt8(midi), withVelocity:64, onChannel:UInt8(0))
     }
     
@@ -207,7 +207,17 @@ class Piano: ObservableObject {
         }
     }
     
-    func playScale(scale:Scale, ascending:Bool, octaves:Int = 2) {
+    func stopPlayScale() {
+        self.stopScale = true
+    }
+    
+    func playScale(scale:Scale, 
+                   metronome:Metronome,
+                   tempoAdjust:Double,
+                   ascending:Bool, octaves:Int = 2,
+                   notifyNotePlayed: (Int)->Void,
+                   endNotify: @escaping ()->Void ) {
+        self.stopScale = false
         DispatchQueue.global(qos: .background).async {
             var count = 0
             for i in 0..<self.keys.count {
@@ -220,16 +230,21 @@ class Piano: ObservableObject {
                     break
                 }
                 if scale.isMidiInScale(midi: key.midi) {
+                    //self.lastMidiPressed = key.midi
                     self.playNote(midi: key.midi)
                     self.setWasLastKeyPressed(pressedKey: key, notifyWatchers: false)
-                    Thread.sleep(forTimeInterval: 0.5)
+                    Thread.sleep(forTimeInterval: (60.0 / tempoAdjust) / Double(metronome.getTempo()))
                     count += 1
+                    if self.stopScale {
+                        break
+                    }
                     if count >= (octaves * 7) + 1 {
                         break
                     }
                     //break
                 }
             }
+            endNotify()
         }
     }
     

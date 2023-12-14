@@ -126,7 +126,7 @@ struct SelectScaleView: View {
                     let scaleType = model.scaleType
                     let key = model.key
                     model.setScale(key: key, scaleType: scaleType)
-                    model.setAllKeysUnPressed()
+                    //model.setAllKeysUnPressed()
                 }) {
                     HStack {
                         Text("Ok")

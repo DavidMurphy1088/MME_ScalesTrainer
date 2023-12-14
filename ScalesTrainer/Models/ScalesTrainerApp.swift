@@ -7,6 +7,12 @@ enum QuestionState {
     case inAnswer
 }
 
+enum PracticeState {
+    case none
+    case playingScale
+    case timingScale
+}
+
 class KeyState : ObservableObject {
     var midi:Int
     @Published var finger:Int? = nil
@@ -15,7 +21,8 @@ class KeyState : ObservableObject {
     var metronomeTicks:Int? = nil
     var pressedSequenceNumber:Int? = nil
     var nextNoteHilight = false
-    
+    @Published var scaleNoteHilite = false
+
     init(midi:Int) {
         self.midi = midi
     }
@@ -46,6 +53,8 @@ enum AppMode {
 
 class ScalesAppModel : ObservableObject {
     @Published var questionState = QuestionState.notStarted
+    @Published var practiceState = PracticeState.none
+    
     @Published var appMode:AppMode = .practiceMode
     @Published var piano:Piano? = nil
     @Published var statesForMidi:[KeyState?] = []
@@ -54,10 +63,14 @@ class ScalesAppModel : ObservableObject {
     @Published var scaleType:ScaleType
     @Published var scale:Scale
     @Published var lastPressedKey:KeyState?
+    
+    @Published var showingFingers:Bool = false
+    @Published var showingMetronome:Bool = false
+    @Published var doubleTempo:Bool = false
 
-    var metronome = Metronome.getMetronomeWithSettings(initialTempo: 60, allowChangeTempo: true, ctx: "")
-    var fingerMode = false
-    var seeNextFingerMode = true
+    var metronome = Metronome.getMetronomeWithSettings(initialTempo: 60, allowChangeTempo: true, ctx: "", maxTempo: 200)
+    var checkFingerMode = false
+    var seeNextFingerMode = false
     
     let pianoTotalKeys = 31
     let pianoStartMidi = 60
@@ -74,9 +87,11 @@ class ScalesAppModel : ObservableObject {
         let initKey = Key(type: .major, keySig: KeySignature(keyName: "C", type: .major))
         key = initKey
         let initScaleType = ScaleType.getAllTypes()[0]
+        //let initScaleType = ScaleType.getAllTypes()[3]
         scaleType = initScaleType
         scale = Scale(key:initKey, scaleType: initScaleType, rightHand: true)
         setScale(key: initKey, scaleType:initScaleType)
+        self.metronome.setTempo(tempo: 100, context: "")
     }
     
     func debugStates(_ ctx:String) {
@@ -112,8 +127,10 @@ class ScalesAppModel : ObservableObject {
                         break
                     }
                 }
-                for state in self.statesForMidi {
-                    state?.nextNoteHilight = state?.midi == nextNote
+                if self.practiceState == .none {
+                    for state in self.statesForMidi {
+                        state?.nextNoteHilight = state?.midi == nextNote
+                    }
                 }
             }
             
@@ -148,13 +165,11 @@ class ScalesAppModel : ObservableObject {
             }
             
             ///End scale when two octaves done
-            if self.appMode == .practiceMode {
+            //if self.appMode == .practiceMode {
                 if self.piano?.lastMidiPressed == self.scale.startMidi + 24 {
-                    self.questionState = .notStarted
-                    self.metronome.stopTicking()
+                    self.endExam()
                 }
-            }
-
+            //}
         }
     }
     
@@ -164,6 +179,7 @@ class ScalesAppModel : ObservableObject {
     
     func setScale(key:Key, scaleType:ScaleType) {
         DispatchQueue.main.async {
+            self.piano?.lastMidiPressed = nil
             self.statesForMidi = Array(repeating: nil, count: 60 + 4*12)
             var piano:Piano
             self.key = key
@@ -187,15 +203,42 @@ class ScalesAppModel : ObservableObject {
             }
             
             self.piano = piano
-            //self.debugStates("end of setup")
+            self.reset()
         }
     }
     
-    func setAllKeysUnPressed() {
+    func notifiedNotePlayed(midi:Int) {
+        DispatchQueue.main.async {
+            for state in self.statesForMidi {
+                if let state = state {
+                    state.scaleNoteHilite = state.midi == midi
+                }
+            }
+        }
+    }
+    
+    func playScale() {
+        self.setPracticeState(state: .playingScale)
+        piano?.playScale(scale: self.scale,
+                         metronome: metronome,
+                         tempoAdjust: doubleTempo ? 2.0 : 1.0,
+                         ascending: true,
+                         notifyNotePlayed: notifiedNotePlayed, endNotify: playScaleEnd)
+    }
+    
+    func stopScale() {
+        piano?.stopPlayScale()
+    }
+    
+    func playScaleEnd() {
+        self.setPracticeState(state: .none)
+    }
+    
+    func reset() {
         DispatchQueue.main.async {
             self.lastMetronomeTickIndex = nil
             self.lastPressedKey = nil
-            //self.piano?.lastMidiPressed
+            self.showingFingers = false
             if let piano = self.piano {
                 piano.setAllKeysUnPressed()
             }
@@ -203,9 +246,26 @@ class ScalesAppModel : ObservableObject {
                 self.statesForMidi[i]?.resetPresses()
                 self.statesForMidi[i]?.nextNoteHilight = false
             }
+            self.questionState = .notStarted
+            self.practiceState = .none
+            
         }
     }
     
+    func startExam() {
+        metronome.setTempo(tempo: 60, context: "")
+        self.doubleTempo = false
+        metronome.startTicking(timeSignature: TimeSignature(top: 4, bottom: 4))
+    }
+    
+    func endExam() {
+        DispatchQueue.main.async {
+            self.setAppMode(mode: .practiceMode)
+            self.questionState = .notStarted
+            self.metronome.stopTicking()
+        }
+    }
+
     func setUsersFingerForMidi(midi:Int, finger:Int) {
         DispatchQueue.main.async {
             //self.fingerUsedByMidi[midi] = finger
@@ -217,6 +277,24 @@ class ScalesAppModel : ObservableObject {
             self.appMode = mode
         }
     }
+    
+    func setShowingFingers(way:Bool) {
+        DispatchQueue.main.async {
+            self.showingFingers = way
+        }
+    }
+    
+    func setDoubleTempo(way:Bool) {
+        DispatchQueue.main.async {
+            self.doubleTempo = way
+        }
+    }
+
+    func setShowingMetronome(way:Bool) {
+        DispatchQueue.main.async {
+            self.showingMetronome = way
+        }
+    }
 
     func setQuestionState(state:QuestionState) {
         DispatchQueue.main.async {
@@ -224,6 +302,12 @@ class ScalesAppModel : ObservableObject {
         }
     }
     
+    func setPracticeState(state:PracticeState) {
+        DispatchQueue.main.async {
+            self.practiceState = state
+        }
+    }
+
     func getUsersFingerForMidi(midi:Int) -> Int? {
         ///Check all octaves of midi
 //        for i in stride(from: midi, to: fingerUsedByMidi.count, by: 12) {
