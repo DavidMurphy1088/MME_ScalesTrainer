@@ -78,7 +78,6 @@ class Scale {
     
     var startMidi:Int = 0
     var startFinger = 0
-    //var fingerBreakIndex = 0
     
     ///The index within the scale after which the next finger must be specified
     var fingerBreakSequenceIndex:Int?
