@@ -169,6 +169,7 @@ class Piano: ObservableObject {
 
     func setAllKeysUnPressed() {
         DispatchQueue.main.async {
+            self.lastMidiPressed = nil
             for index in 0..<self.keys.count {
                 self.keys[index].wasPressed = false
                 self.keys[index].wasLastKeyPressed = false
@@ -191,7 +192,7 @@ class Piano: ObservableObject {
         midiSampler.startNote(UInt8(midi), withVelocity:64, onChannel:UInt8(0))
     }
     
-    func debug(_ ctx:String, midi:Int? = nil) {
+    func debug1(_ ctx:String, midi:Int? = nil) {
         print("=========Piano Keys", ctx)
         for key in self.keys {
             var show = true

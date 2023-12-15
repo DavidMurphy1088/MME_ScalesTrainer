@@ -20,6 +20,7 @@
 		7B59A16A2B0FEC7C000E0E4E /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 7B59A1692B0FEC7C000E0E4E /* Assets.xcassets */; };
 		7B66E83F2B13E5CE00299C95 /* Piano.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B66E83E2B13E5CE00299C95 /* Piano.swift */; };
 		7B66E8422B13E72700299C95 /* PianoKeyView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B66E8412B13E72700299C95 /* PianoKeyView.swift */; };
+		7BA804762B2C4508007FBE83 /* ExamResultView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BA804752B2C4508007FBE83 /* ExamResultView.swift */; };
 		7BB793932B1B56FC004E2940 /* ToDo in Resources */ = {isa = PBXBuildFile; fileRef = 7BB793922B1B56FC004E2940 /* ToDo */; };
 		7BE2C52F2B1DB442003B34E2 /* PianoView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BE2C52E2B1DB442003B34E2 /* PianoView.swift */; };
 		7BE2C5312B1DCE2A003B34E2 /* Scale.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BE2C5302B1DCE2A003B34E2 /* Scale.swift */; };
@@ -60,6 +61,7 @@
 		7B59A1692B0FEC7C000E0E4E /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		7B66E83E2B13E5CE00299C95 /* Piano.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Piano.swift; sourceTree = "<group>"; };
 		7B66E8412B13E72700299C95 /* PianoKeyView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PianoKeyView.swift; sourceTree = "<group>"; };
+		7BA804752B2C4508007FBE83 /* ExamResultView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExamResultView.swift; sourceTree = "<group>"; };
 		7BB793922B1B56FC004E2940 /* ToDo */ = {isa = PBXFileReference; lastKnownFileType = text; path = ToDo; sourceTree = "<group>"; };
 		7BE2C52E2B1DB442003B34E2 /* PianoView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PianoView.swift; sourceTree = "<group>"; };
 		7BE2C5302B1DCE2A003B34E2 /* Scale.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Scale.swift; sourceTree = "<group>"; };
@@ -176,6 +178,7 @@
 				7BE2C52E2B1DB442003B34E2 /* PianoView.swift */,
 				7B3FC96B2B0B607C004A7987 /* ScalesView.swift */,
 				7B2219302B23B09000F200EF /* SelectScaleView.swift */,
+				7BA804752B2C4508007FBE83 /* ExamResultView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -315,6 +318,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				7BA804762B2C4508007FBE83 /* ExamResultView.swift in Sources */,
 				7B3FC9732B0B607E004A7987 /* Persistence.swift in Sources */,
 				7B3FC96C2B0B607C004A7987 /* ScalesView.swift in Sources */,
 				7B3FC9762B0B607E004A7987 /* ScalesTrainer.xcdatamodeld in Sources */,
@@ -481,11 +485,13 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = NO;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 2;
 				DEVELOPMENT_ASSET_PATHS = "\"ScalesTrainer/Preview Content\"";
 				DEVELOPMENT_TEAM = X9VDGR7PQ7;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = "Scales Trainer";
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.education";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -511,11 +517,13 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = NO;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 2;
 				DEVELOPMENT_ASSET_PATHS = "\"ScalesTrainer/Preview Content\"";
 				DEVELOPMENT_TEAM = X9VDGR7PQ7;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = "Scales Trainer";
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.education";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
