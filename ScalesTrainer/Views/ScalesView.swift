@@ -77,7 +77,7 @@ struct AfterPressedHandler: View {
     
     func saveFinger(_ finger:Int) {
         fingerChoiceToBePresented = false
-        if let lastMidiPressed = piano.lastMidiPressed {
+        if let lastMidiPressed = piano.getLastMidiPressed() {
             piano.playNote(midi: lastMidiPressed)
             model.setUsersFingerForMidi(midi: lastMidiPressed, finger: finger)
         }
@@ -102,15 +102,15 @@ struct AfterPressedHandler: View {
                 ]
             )
         }
-        .onChange(of: piano.lastMidiPressed, perform: {newValue in
-            if let lastMidiPressed = piano.lastMidiPressed {
+        .onChange(of: piano.getLastMidiPressed(), perform: {newValue in
+            if let lastMidiPressed = piano.getLastMidiPressed() {
                 model.saveTap(midi: lastMidiPressed)
             }
 
             ///Check if UI has to be presented to ask for the user's finger choice
             if model.getQuestionState() != .inAnswer {
                 if model.checkFingerMode {
-                    if let lastMidiPressed = piano.lastMidiPressed {
+                    if let lastMidiPressed = piano.getLastMidiPressed() {
                         if model.scale.getRequiredFinger(midi: lastMidiPressed) != nil {
                             if model.getUsersFingerForMidi(midi: lastMidiPressed) == nil {
                                 fingerChoiceToBePresented = true
@@ -120,7 +120,7 @@ struct AfterPressedHandler: View {
                     }
                 }
                 if !fingerChoiceToBePresented {
-                    if let lastMidiPressed = piano.lastMidiPressed {
+                    if let lastMidiPressed = piano.getLastMidiPressed() {
                         piano.playNote(midi: lastMidiPressed)
                     }
                 }
@@ -277,7 +277,7 @@ struct ScaleNoteView: View {
     }
 }
 
-struct ScalesView: PianoUserProtocol, View {    
+struct ScalesView: PianoUserProtocol, View {
     @ObservedObject var model:ScalesAppModel
     @State var showSelectScale:Bool
     @State var userMessage = ""
@@ -299,6 +299,9 @@ struct ScalesView: PianoUserProtocol, View {
     init(showSelectScale:Bool) {
         model = ScalesAppModel.shared
         self.showSelectScale = showSelectScale
+    }
+    
+    func receiveNotificationOfKeyPress(key: PianoKey) {
     }
 
     func getKeyDisplayView(key:PianoKey) -> some View {
@@ -338,7 +341,7 @@ struct ScalesView: PianoUserProtocol, View {
         HStack {            
             Button(action: {
                 rightHand.toggle()
-                model.piano = rightHand ? Piano(startMidi: 65, number: 30) : Piano(startMidi: 36, number: model.pianoTotalKeys)
+                model.piano = rightHand ? Piano(startMidi: 65, number: 30, soundNotes: false) : Piano(startMidi: 36, number: model.pianoTotalKeys, soundNotes: false)
             }) {
                 HStack {
                     if rightHand {
@@ -492,11 +495,9 @@ struct ScalesView: PianoUserProtocol, View {
                     
                     Button(action: {
                         if model.practiceState == .playingScale {
-                            model.stopScale()
-                            model.setPracticeState(state: .none)
+                            model.setPracticeState(state: .none, ctx1: "BTN say stop plaing scale")
                         }
                         else {
-                            model.setPracticeState(state: .playingScale)
                             model.playScale()
                         }
                     }) {
@@ -577,14 +578,13 @@ struct ScalesView: PianoUserProtocol, View {
     
     func metronomeView() -> some View {
         VStack {
-            //let imageSize = imageSize / 2.0
             HStack {
                 Button(action: {
                     model.setDoubleTempo(way: !model.doubleTempo)
                 }) {
                     if model.doubleTempo {
-                        Image("note_eighth").resizable()
-                            .foregroundColor(.red)
+                        Image("semiquaver").resizable()
+                            .foregroundColor(.purple)
                             .frame(width: imageSize, height: imageSize)
                     }
                     else {
@@ -632,7 +632,7 @@ struct ScalesView: PianoUserProtocol, View {
             
 
             if let piano = model.piano {
-                PianoView<ScalesView>(piano: piano).padding()
+                PianoView<ScalesView>(piano: piano, user: ScalesView()).padding()
             }
             Text("© 2024 Musicmaster Education Limited")
         }

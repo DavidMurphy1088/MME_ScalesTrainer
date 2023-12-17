@@ -151,7 +151,6 @@ class ScalesAppModel : ObservableObject {
                     let ticks = keyState.closestMetronomeIndex - self.lastMetronomeTickIndex!
                     keyState.metronomeTicks = ticks
                 }
-                //print("========= GetTicks KeyMidi", midi, "ticks", keyState.metronomeTicks )
             }
             
             if self.lastPressedKey == nil {
@@ -166,14 +165,14 @@ class ScalesAppModel : ObservableObject {
             self.lastMetronomeTickIndex = keyState.closestMetronomeIndex
             
             ///Cause the other piano notes to update their displays
-            for key in self.piano!.keys {
+            for key in self.piano!.getKeys() {
                 if key.midi != midi {
                     key.redisplay()
                 }
             }
             
             ///End scale when two octaves done
-            if self.piano?.lastMidiPressed == self.scale.startMidi + 24 {
+            if self.piano?.getLastMidiPressed() == self.scale.startMidi + 24 {
                 endScale()
             }
         }
@@ -209,21 +208,21 @@ class ScalesAppModel : ObservableObject {
 
     func setScale(key:Key, scaleType:ScaleType) {
         DispatchQueue.main.async {
-            self.piano?.lastMidiPressed = nil
+            self.piano?.setAllKeysUnPressed()
             self.statesForMidi = Array(repeating: nil, count: 60 + 4*12)
             var piano:Piano
             self.key = key
             self.scaleType = scaleType
             self.scale = Scale(key:key, scaleType: scaleType, rightHand: true)
             if self.scale.startMidi > 67 {
-                piano = Piano(startMidi: 65, number: self.pianoTotalKeys)
+                piano = Piano(startMidi: 65, number: self.pianoTotalKeys, soundNotes: false)
             }
             else {
-                piano = Piano(startMidi: 60, number: self.pianoTotalKeys)
+                piano = Piano(startMidi: 60, number: self.pianoTotalKeys, soundNotes: false)
             }
             ///One key state for every piano key
             var correctKeyNum = 0
-            for key in piano.keys {
+            for key in piano.getKeys() {
                 let keyState = KeyState(midi: key.midi)
                 if self.scale.isMidiInScale(midi: key.midi) {
                     keyState.correctScaleOffset = correctKeyNum
@@ -247,21 +246,27 @@ class ScalesAppModel : ObservableObject {
         }
     }
     
-    func playScale() {
-        self.setPracticeState(state: .playingScale)
-        piano?.playScale(scale: self.scale,
-                         metronome: metronome,
-                         tempoAdjust: doubleTempo ? 2.0 : 1.0,
-                         ascending: true,
-                         notifyNotePlayed: notifiedNotePlayed, endNotify: playScaleEnd)
-    }
-    
-    func stopScale() {
-        piano?.stopPlayScale()
-    }
-    
-    func playScaleEnd() {
-        self.setPracticeState(state: .none)
+    public func playScale() {
+        self.setPracticeState(state: .playingScale, ctx1: "START PlayScale")
+        DispatchQueue.global(qos: .background).async {
+            
+            for index in 0..<self.scale.noteCount+1 {
+                let midi = self.scale.startMidi + index
+                if self.scale.isMidiInScale(midi: midi) {
+                    self.piano?.pressKey(midi: midi)
+                    var sleepTime = 60.0 / Double(self.metronome.getTempo())
+                    if self.doubleTempo {
+                        sleepTime = sleepTime / 4.0
+                    }
+                    Thread.sleep(forTimeInterval: sleepTime)
+                    if self.practiceState == .none {
+                        break
+                    }
+                }
+            }
+            self.piano?.setAllKeysUnPressed()
+            self.setPracticeState(state: .none, ctx1: "END PlayScale")
+        }
     }
     
     func reset() {
@@ -278,7 +283,7 @@ class ScalesAppModel : ObservableObject {
                 self.statesForMidi[i]?.finger = nil
             }
             self.questionState = .notStarted
-            self.practiceState = .none
+            self.setPracticeState(state: .none, ctx1: "reset")
         }
     }
     
@@ -315,7 +320,6 @@ class ScalesAppModel : ObservableObject {
                         //examCorrect -= 1
                     }
                     examInScale += 1
-                    print ("==========", state.midi, examCorrect, examInScale)
                 }
                 else {
                     if state.pressedSequenceNumber != nil {
@@ -324,7 +328,6 @@ class ScalesAppModel : ObservableObject {
                 }
             }
             if self.appMode == .examMode {
-                //print("====== END Exam", correct, inScale)
                 self.examResultCorrectCount = examCorrect
                 self.examResultNoteCount = examInScale
                 self.examResultWrongCount = examWrong
@@ -363,8 +366,9 @@ class ScalesAppModel : ObservableObject {
         }
     }
     
-    func setPracticeState(state:PracticeState) {
+    func setPracticeState(state:PracticeState, ctx1:String) {
         DispatchQueue.main.async {
+            print("==========setPracticeState CTX", ctx1, "STATE", state)
             self.practiceState = state
         }
     }
@@ -385,11 +389,6 @@ class ScalesAppModel : ObservableObject {
     }
     
     func getNoteStatus(pianoKey:PianoKey) -> NoteDisplayState  {
-        let debugNote = 60
-//        if [debugNote].contains(midi) {
-//            print("=========== getShowStatus1 For_midi", midi)
-//            //model.piano?.debug("getShowStatus", midi: midi)
-//        }
         let noteState = getNoteShowStatus(pianoKey: pianoKey)
         if let midiState = self.statesForMidi[pianoKey.midi] {
             midiState.examStatus = noteState
@@ -397,11 +396,6 @@ class ScalesAppModel : ObservableObject {
         if self.appMode == .examMode {
             return NoteDisplayState .noShow
         }
-
-//        if [debugNote].contains(midi) {
-//            print("=========== getShowStatus2 For_midi", midi, "ShowStatus", state)
-//            //model.piano?.debug("getShowStatus", midi: midi)
-//        }
         return noteState
     }
 
