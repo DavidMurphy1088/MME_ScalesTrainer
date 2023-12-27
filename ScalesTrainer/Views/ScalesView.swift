@@ -11,7 +11,7 @@ struct CustomModifier: ViewModifier {
         content
             .padding()
             .background(RoundedRectangle(cornerRadius: 12).fill(backgroundColor))
-            .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.blue, lineWidth: 4))
+            .roundedBorderRectangle()
     }
 }
 
@@ -622,15 +622,11 @@ struct ScalesView: PianoUserProtocol, View {
                 .padding()
             
             topLineView()
-//                .padding()
-//                .background(RoundedRectangle(cornerRadius: 12).fill(backgroundColor))
-//                .overlay(RoundedRectangle(cornerRadius: 20).stroke(Color.blue, lineWidth: 4))
                 .customBlock()
             
             commandsView()
                 //.customBlock()
             
-
             if let piano = model.piano {
                 PianoView<ScalesView>(piano: piano, user: ScalesView()).padding()
             }
