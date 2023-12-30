@@ -368,7 +368,6 @@ class ScalesAppModel : ObservableObject {
     
     func setPracticeState(state:PracticeState, ctx1:String) {
         DispatchQueue.main.async {
-            print("==========setPracticeState CTX", ctx1, "STATE", state)
             self.practiceState = state
         }
     }
