@@ -21,6 +21,7 @@
 		7BA804762B2C4508007FBE83 /* ExamResultView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BA804752B2C4508007FBE83 /* ExamResultView.swift */; };
 		7BA8047C2B2D1234007FBE83 /* Scale.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BA8047B2B2D1234007FBE83 /* Scale.swift */; };
 		7BB793932B1B56FC004E2940 /* ToDo in Resources */ = {isa = PBXBuildFile; fileRef = 7BB793922B1B56FC004E2940 /* ToDo */; };
+		7BE7BAA22B43D796000B09C0 /* ScalesSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BE7BAA12B43D796000B09C0 /* ScalesSettings.swift */; };
 		7BF4F8D52B101A41009DE7F1 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 7B59A1692B0FEC7C000E0E4E /* Assets.xcassets */; };
 /* End PBXBuildFile section */
 
@@ -59,6 +60,7 @@
 		7BA804752B2C4508007FBE83 /* ExamResultView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExamResultView.swift; sourceTree = "<group>"; };
 		7BA8047B2B2D1234007FBE83 /* Scale.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Scale.swift; sourceTree = "<group>"; };
 		7BB793922B1B56FC004E2940 /* ToDo */ = {isa = PBXFileReference; lastKnownFileType = text; path = ToDo; sourceTree = "<group>"; };
+		7BE7BAA12B43D796000B09C0 /* ScalesSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScalesSettings.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -170,6 +172,7 @@
 				7BA804752B2C4508007FBE83 /* ExamResultView.swift */,
 				7B3FC96B2B0B607C004A7987 /* ScalesView.swift */,
 				7B2219302B23B09000F200EF /* SelectScaleView.swift */,
+				7BE7BAA12B43D796000B09C0 /* ScalesSettings.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -311,6 +314,7 @@
 			files = (
 				7BA804762B2C4508007FBE83 /* ExamResultView.swift in Sources */,
 				7B3FC9732B0B607E004A7987 /* Persistence.swift in Sources */,
+				7BE7BAA22B43D796000B09C0 /* ScalesSettings.swift in Sources */,
 				7B3FC96C2B0B607C004A7987 /* ScalesView.swift in Sources */,
 				7B3FC9762B0B607E004A7987 /* ScalesTrainer.xcdatamodeld in Sources */,
 				7BA8047C2B2D1234007FBE83 /* Scale.swift in Sources */,
