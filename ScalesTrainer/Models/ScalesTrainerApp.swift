@@ -98,7 +98,7 @@ class ScalesAppModel : ObservableObject {
         scaleType = initScaleType
         scale = Scale(key:initKey, scaleType: initScaleType, rightHand: true)
         setScale(key: initKey, scaleType:initScaleType)
-        self.metronome.setTempo(tempo: 80, context: "")
+        self.metronome.setTempo(tempo: 90, context: "")
     }
     
     func debugStates(_ ctx:String) {
