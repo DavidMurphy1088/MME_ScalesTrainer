@@ -594,9 +594,10 @@ struct ScalesView: PianoUserProtocol, View {
                     }
                 }
                 
-                MetronomeView(timeSignature: TimeSignature(top: 4, bottom: 4), helpText: "Set the tempo for your scale",
-                              frameHeight: 80, backgroundColor: Settings.shared.colorScore)
-                .frame(width: UIScreen.main.bounds.width * 0.50, height: UIScreen.main.bounds.height * 0.10)
+                
+//                MetronomeView(timeSignature: TimeSignature(top: 4, bottom: 4), helpText: "Set the tempo for your scale",
+//                              frameHeight: 80, backgroundColor: Settings.shared.colorScore)
+//                .frame(width: UIScreen.main.bounds.width * 0.50, height: UIScreen.main.bounds.height * 0.10)
             }
         }
     }
